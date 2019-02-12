@@ -1,0 +1,33 @@
+"0","unit_raw <- read_csv(unit_csv) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  .default = col_integer(),
+  Member = col_character(),
+  Last = col_character(),
+  Status = col_character(),
+  `T5/B5` = col_character(),
+  Territory = col_character()
+)
+"
+"2","See spec(...) for full column specifications.
+"
+"0","revenue_raw <- read_csv(revenue_csv) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  .default = col_integer()
+)
+"
+"2","See spec(...) for full column specifications.
+"
+"0","state_raw <- read_csv(state_csv) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  `Member ID` = col_integer(),
+  `Practice Name` = col_character(),
+  IRL = col_character(),
+  `Legal Profile` = col_character(),
+  `Term Date` = col_character(),
+  State = col_character(),
+  Country = col_character()
+)
+"

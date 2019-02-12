@@ -1,0 +1,174 @@
+---
+title: "Eric color correct"
+author: "Leslie"
+date: "October 1, 2018"
+output: html_document
+---
+
+---
+title: "Eric"
+author: "Leslie"
+date: "September 20, 2018"
+output: html_document
+---
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","gtable","zipcode","maps", "viridis", "ggthemes","blscrapeR","ggmap","maps") 
+
+```
+
+```{r data_locations}
+address_csv <- 'raw_data/addresses.csv'
+zip_csv <- 'raw_data/zip.csv'
+p_lo_csv <- 'raw_data/p_lo.csv'
+
+ryb <-
+   c("#FF0000",
+   "#FFFF00",
+   "#0000FF"
+   )
+BA_red_FSQ_blue<-
+  c("#FF0000", "#0000FF")
+
+FSQ_blue_HDG_yellow<-
+  c("#0000FF", "#FFFF00" )
+
+HDG_yellow_BA_red<-
+  c("#FF0000", "#FFFF00"  )
+
+HDG_yellow<-"#FFFF00"
+FSQ_blue<-"#0000FF"
+
+
+```
+
+```{r read_in}
+address <- read_csv(address_csv) %>% clean_names()
+p_lo <- read_csv(p_lo_csv) %>% clean_names() %>% 
+  mutate(practice=trimws(practice))
+zip <- read_csv(zip_csv) %>% clean_names() %>% 
+mutate(hdg=hd_g) %>% 
+mutate(zip=as.numeric(row_labels)) %>% 
+  select(zip,ba,fsq,hdg,total=grand_total)
+
+data(zipcode)
+
+zipcode <- zipcode %>% 
+  mutate(zip=as.numeric(zip))
+
+ma_pa <- zipcode 
+
+
+```
+
+
+```{r}
+e_all <- zip %>% 
+  left_join(ma_pa,by = "zip") %>% 
+  filter(state=="MD"|state=="PA")
+
+zip_long <- zip %>% 
+ select(zip,ba,fsq,hdg) %>% 
+  group_by(zip) %>% 
+  gather(location,number,2:4) %>% 
+  filter(!is.na(number)) %>% 
+  left_join(ma_pa,by = "zip")
+
+ba_fsq <- zip_long %>% 
+  filter(location!="hdg")
+
+fsq_hdg <- zip_long %>% 
+  filter(location!="ba")
+
+hdg_ba <- zip_long %>% 
+  filter(location!="fsq")
+
+ba_fsq_lo<- p_lo %>% 
+  filter(practice!="Havre de Grace")
+
+fsq_hdg_lo<- p_lo %>% 
+  filter(practice!="Bel Air")
+
+hdg_ba_lo<- p_lo %>% 
+  filter(practice!="Franklin Square")
+
+```
+
+
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+  
+p1<- ggmap(get_map(location = eric_p), source = "osm")+
+  geom_point(data=ba_fsq, aes(x = longitude, y = latitude, size=number, color= location, alpha=0.4), inherit.aes = F)+
+  
+    geom_point(data=ba_fsq_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3)+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())+
+  scale_color_manual(values = BA_red_FSQ_blue)
+
+p1
+ggsave("ggplots/ba_fsq.pdf")
+```
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+  
+p2<- ggmap(get_map(location = eric_p), source = "osm")+
+  geom_point(data=fsq_hdg, aes(x = longitude, y = latitude, size=number, color= location, alpha=1), inherit.aes = F)+
+  
+    geom_point(data=fsq_hdg_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3)+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())+
+  scale_color_manual(values = FSQ_blue_HDG_yellow)
+
+p2
+ggsave("ggplots/fsq_hdg.pdf")
+```
+
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+  
+p3<- ggmap(get_map(location = eric_p), source = "osm")+
+  geom_point(data=hdg_ba, aes(x = longitude, y = latitude, size=number, color= location, alpha=1), inherit.aes = F)+
+  
+    geom_point(data=hdg_ba_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3)+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())+
+  scale_color_manual(values = HDG_yellow_BA_red)
+
+p3
+ggsave("ggplots/hdg_ba.pdf")
+```
+
+

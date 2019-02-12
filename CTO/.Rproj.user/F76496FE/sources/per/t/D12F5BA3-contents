@@ -1,0 +1,894 @@
+---
+title: "Study Count Dashboard"
+author: "OCTRI Office of Research Impact"
+date: '`r format(Sys.time(), "%B %d, %Y")`'
+output:
+  flexdashboard::flex_dashboard:
+    smooth_scroll: yes
+    vertical_layout: scroll
+  html_document:
+    df_print: paged
+  pdf_document: default
+      
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r load_packages}
+
+library(install.load)
+install_load("readr","readxl","haven","plyr","tidyr","stringr","ggplot2","ggthemes","knitr", "psych","kableExtra", "lubridate","tidyverse","scales","ggbeeswarm","hexbin","gridExtra","janitor","igraph","xtable","tint","rio","splitstackshape","DT","gtable", "labeling", "RColorBrewer", "packrat", "ggvis", "digest", "labeling", "munsell", "RColorBrewer", "Rcpp", "reshape2", "survival", "survminer", "grid", "flexdashboard","ggrepel","png","shiny","htmlwidgets", "digest", "bit", "visNetwork") # list packages needed
+
+ohsu <- c("#FFC939", "#5E97C9", "#585E60", "#57B147", "#002776", "#ED6D23", "#ED1941","#0E4D8F","#8B2252", "#BF3EFF", "#00EEEE")
+```
+
+```{r load_data, include=FALSE}
+#import all states for all contracts
+states <- read_csv("raw_data/Contract States Long 3.29.18.csv") %>% clean_names()
+#import all contract, study, and irb level data
+contracts <- read_csv("raw_Data/Contract Level Data 3.29.18.csv") %>% clean_names()
+#import crosswalk for orgs, to know department
+orgs <- import("raw_data/Departments and orgs 3.29.18.csv") %>% clean_names()
+
+```
+
+```{r bring_in_org}
+org_contracts <- contracts %>%
+  left_join(orgs, by = c("award_org_name"="project_organization_name")) %>%
+  rename(dept = project_owning_department) 
+```
+
+```{r bring_in_withdrawn_states}
+#find out which studies are withdrawn and the withdraw date
+states_withdrawn <- states %>%
+  select(e_cris_contract_nbr, workflow_state_to, state_exit_dt) %>% 
+  filter(workflow_state_to=="Withdrawn") %>% 
+  rename(state=workflow_state_to, withdrawn_dt=state_exit_dt)
+
+state_org_contracts <- org_contracts %>% 
+  left_join(states_withdrawn, by = c("e_cris_contract_nbr"="e_cris_contract_nbr"))
+```
+
+```{r filter_to_contract}
+contracts_only <- state_org_contracts %>% 
+  #filter out non-contracts**********************************************
+  filter(contract_type=="Contract") %>%
+  #filter out studies without an irb submit, we need an IRB submit as a start date
+  filter(!is.na(irb_study_submitted_dt)) %>% 
+  
+#Use irb study submitted date as the start date (all by fiscal year)
+mutate(irb_study_submitted_dt=substr(irb_study_submitted_dt, 1, 10)) %>% 
+mutate(start_date = as_date(ymd(irb_study_submitted_dt))) %>%
+mutate(year_start = ifelse(
+  start_date < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  start_date < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  start_date < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  start_date < ymd("2016-07-01"),
+  "2016",
+  ifelse(start_date < ymd("2017-07-01"), 
+  "2017", "2018")))))) %>% 
+  mutate(c.quarter_start = quarter(irb_study_submitted_dt)) %>% 
+  mutate(f.quarter_start = recode(c.quarter_start, "1"="3", "2"='4', "3"='1', "4"='2', .default = "unknown")) %>% 
+  mutate(q_start = paste0(year_start, f.quarter_start)) %>% 
+ 
+#Use negotiation complete date and withdraw date as end date
+  mutate(negotiation_complete_dt=substr(negotiation_complete_dt, 1, 10)) %>%
+  mutate(withdrawn_dt=substr(withdrawn_dt, 1, 10)) %>%
+  mutate(stop_date = ifelse(
+    is.na(negotiation_complete_dt) & state=="Withdrawn" & !is.na(state),
+  withdrawn_dt,
+  negotiation_complete_dt)) %>%
+  
+  mutate(year_stop = ifelse(
+  stop_date < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  stop_date < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  stop_date < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  stop_date < ymd("2016-07-01"),
+  "2016",
+  ifelse(stop_date < ymd("2017-07-01"),
+  "2017", "2018")))))) %>% 
+  mutate(c.quarter_stop = quarter(negotiation_complete_dt)) %>% 
+  mutate(f.quarter_stop = recode(c.quarter_stop, "1"="3", "2"='4', "3"='1', "4"='2', .default = "unknown")) %>% 
+  mutate(q_stop = paste0(year_stop, f.quarter_stop)) %>% 
+  
+ mutate(year_start.n = as.numeric(year_start)) %>%
+ mutate(year_stop.n = as.numeric(year_stop)) %>%
+ ##if there is no end date, it is assumed that it is active in the current year (2018)
+ mutate(year_stop.n = ifelse(
+    is.na(year_stop.n),
+    2018,
+    year_stop.n ))%>% 
+ mutate(num.year = year_stop.n - year_start.n + 1) %>% 
+
+ mutate(q_start.n = as.numeric(q_start)) %>%
+ mutate(q_stop.n = as.numeric(q_stop)) %>% 
+ ##if there is no end date, it is assumed that it is active in the current quarter (20183)
+ mutate(q_stop.n = ifelse(
+    is.na(q_stop.n),
+    20183,
+    q_stop.n ))
+```
+
+```{r (t1)_yearly_data_c}
+#yearly data preparation
+year_contract <- contracts_only %>% 
+select(year_start.n, year_stop.n, e_cris_contract_nbr) %>%
+ ##if a study started at 2013 and ended at 2015, it will not be counted as an active study for 2015. However, if a study started in 2015 and ended at 2015, it will be counted as an active study in 2015
+  mutate(FY2013 = ifelse(year_start.n <= 2013 & year_stop.n > 2013,
+  1,ifelse(year_start.n == 2013 & year_stop.n == 2013,
+  1,0))) %>% 
+  mutate(FY2014 = ifelse(year_start.n <= 2014 & year_stop.n > 2014,
+  1,ifelse(year_start.n == 2014 & year_stop.n == 2014,
+  1,0))) %>% 
+  mutate(FY2015 = ifelse(year_start.n <= 2015 & year_stop.n > 2015,
+  1, ifelse(year_start.n == 2015 & year_stop.n == 2015,
+  1,0))) %>% 
+  mutate(FY2016 = ifelse(year_start.n <= 2016 & year_stop.n > 2016,
+  1, ifelse(year_start.n == 2016 & year_stop.n == 2016,
+  1,0))) %>%
+  mutate(FY2017 = ifelse(year_start.n <= 2017 & year_stop.n > 2017,
+  1, ifelse(year_start.n == 2017 & year_stop.n == 2017,
+  1,0))) %>%   
+  mutate(FY2018 = ifelse(year_start.n <= 2018 & year_stop.n == 2018,
+  1,0))
+
+year_contract_tidy <- year_contract[c(3:9)] %>% 
+  gather(year,n,2:7) %>%
+  select(year,n) %>% 
+  group_by(year) %>% 
+  summarise(number=sum(n))
+
+table1 <- year_contract_tidy
+```
+
+```{r (t2)_quarterly_data_c}
+#quarterly data preparation
+quarter_contract <- contracts_only %>% 
+select(q_start.n, q_stop.n, e_cris_contract_nbr) %>%
+  
+  mutate("2013.1" = 
+  ifelse(q_start.n <= 20131 & q_stop.n > 20131,
+  1,ifelse(q_start.n == 20131 & q_stop.n == 20131,
+  1,0))) %>% 
+  mutate("2013.2" = 
+  ifelse(q_start.n <= 20132 & q_stop.n > 20132,
+  1,ifelse(q_start.n == 20132 & q_stop.n == 20132,
+  1,0))) %>% 
+  mutate("2013.3" = 
+  ifelse(q_start.n <= 20133 & q_stop.n > 20133,
+  1,ifelse(q_start.n == 20133 & q_stop.n == 20133,
+  1,0))) %>% 
+  mutate("2013.4" = 
+  ifelse(q_start.n <= 20134 & q_stop.n > 20134,
+  1,ifelse(q_start.n == 20134 & q_stop.n == 20134,
+  1,0))) %>% 
+  
+  mutate("2014.1" = 
+  ifelse(q_start.n <= 20141 & q_stop.n > 20141,
+  1,ifelse(q_start.n == 20141 & q_stop.n == 20141,
+  1,0))) %>% 
+  mutate("2014.2" = 
+  ifelse(q_start.n <= 20142 & q_stop.n > 20142,
+  1,ifelse(q_start.n == 20142 & q_stop.n == 20142,
+  1,0))) %>% 
+  mutate("2014.3" = 
+  ifelse(q_start.n <= 20143 & q_stop.n > 20143,
+  1,ifelse(q_start.n == 20143 & q_stop.n == 20143,
+  1,0))) %>% 
+  mutate("2014.4" = 
+  ifelse(q_start.n <= 20144 & q_stop.n > 20144,
+  1,ifelse(q_start.n == 20144 & q_stop.n == 20144,
+  1,0))) %>% 
+  
+  mutate("2015.1" = 
+  ifelse(q_start.n <= 20151 & q_stop.n > 20151,
+  1,ifelse(q_start.n == 20151 & q_stop.n == 20151,
+  1,0))) %>% 
+  mutate("2015.2" = 
+  ifelse(q_start.n <= 20152 & q_stop.n > 20152,
+  1,ifelse(q_start.n == 20152 & q_stop.n == 20152,
+  1,0))) %>% 
+  mutate("2015.3" = 
+  ifelse(q_start.n <= 20153 & q_stop.n > 20153,
+  1,ifelse(q_start.n == 20153 & q_stop.n == 20153,
+  1,0))) %>% 
+  mutate("2015.4" = 
+  ifelse(q_start.n <= 20154 & q_stop.n > 20154,
+  1,ifelse(q_start.n == 20154 & q_stop.n == 20154,
+  1,0))) %>%
+  
+  mutate("2016.1" = 
+  ifelse(q_start.n <= 20161 & q_stop.n > 20161,
+  1,ifelse(q_start.n == 20161 & q_stop.n == 20161,
+  1,0))) %>% 
+  mutate("2016.2" = 
+  ifelse(q_start.n <= 20162 & q_stop.n > 20162,
+  1,ifelse(q_start.n == 20162 & q_stop.n == 20162,
+  1,0))) %>% 
+  mutate("2016.3" = 
+  ifelse(q_start.n <= 20163 & q_stop.n > 20163,
+  1,ifelse(q_start.n == 20163 & q_stop.n == 20163,
+  1,0))) %>% 
+  mutate("2016.4" = 
+  ifelse(q_start.n <= 20164 & q_stop.n > 20164,
+  1,ifelse(q_start.n == 20164 & q_stop.n == 20164,
+  1,0))) %>%
+  
+  mutate("2017.1" = 
+  ifelse(q_start.n <= 20171 & q_stop.n > 20171,
+  1,ifelse(q_start.n == 20171 & q_stop.n == 20171,
+  1,0))) %>% 
+  mutate("2017.2" = 
+  ifelse(q_start.n <= 20172 & q_stop.n > 20172,
+  1,ifelse(q_start.n == 20172 & q_stop.n == 20172,
+  1,0))) %>% 
+  mutate("2017.3" = 
+  ifelse(q_start.n <= 20173 & q_stop.n > 20173,
+  1,ifelse(q_start.n == 20173 & q_stop.n == 20173,
+  1,0))) %>% 
+  mutate("2017.4" = 
+  ifelse(q_start.n <= 20174 & q_stop.n > 20174,
+  1,ifelse(q_start.n == 20174 & q_stop.n == 20174,
+  1,0))) %>%
+  
+  mutate("2018.1" = 
+  ifelse(q_start.n <= 20181 & q_stop.n > 20181,
+  1,ifelse(q_start.n == 20181 & q_stop.n == 20181,
+  1,0))) %>% 
+  mutate("2018.2" = 
+  ifelse(q_start.n <= 20182 & q_stop.n > 20182,
+  1,ifelse(q_start.n == 20182 & q_stop.n == 20182,
+  1,0))) %>% 
+  mutate("2018.3" = 
+  ifelse(q_start.n <= 20183 & q_stop.n > 20183,
+  1,ifelse(q_start.n == 20183 & q_stop.n == 20183,
+  1,0))) %>% 
+  mutate("2018.4" = 
+  ifelse(q_start.n <= 20184 & q_stop.n > 20184,
+  1,ifelse(q_start.n == 20184 & q_stop.n == 20184,
+  1,0)))
+
+quarter_contract_tidy <- quarter_contract[c(3:27)] %>% 
+  gather(year,n,2:25) %>%
+  select(year,n) %>% 
+  group_by(year) %>% 
+  summarise(number=sum(n))
+
+table2 <- quarter_contract_tidy 
+```
+
+```{r (t3)_quarterly_analyst_c}
+#quarterly analyst data preparation
+analyst_quarter_contract <- contracts_only %>% 
+select(preaward_contact, q_start.n, q_stop.n, e_cris_contract_nbr) %>%
+  
+  mutate("2013.1" = 
+  ifelse(q_start.n <= 20131 & q_stop.n > 20131,
+  1,ifelse(q_start.n == 20131 & q_stop.n == 20131,
+  1,0))) %>% 
+  mutate("2013.2" = 
+  ifelse(q_start.n <= 20132 & q_stop.n > 20132,
+  1,ifelse(q_start.n == 20132 & q_stop.n == 20132,
+  1,0))) %>% 
+  mutate("2013.3" = 
+  ifelse(q_start.n <= 20133 & q_stop.n > 20133,
+  1,ifelse(q_start.n == 20133 & q_stop.n == 20133,
+  1,0))) %>% 
+  mutate("2013.4" = 
+  ifelse(q_start.n <= 20134 & q_stop.n > 20134,
+  1,ifelse(q_start.n == 20134 & q_stop.n == 20134,
+  1,0))) %>% 
+  
+  mutate("2014.1" = 
+  ifelse(q_start.n <= 20141 & q_stop.n > 20141,
+  1,ifelse(q_start.n == 20141 & q_stop.n == 20141,
+  1,0))) %>% 
+  mutate("2014.2" = 
+  ifelse(q_start.n <= 20142 & q_stop.n > 20142,
+  1,ifelse(q_start.n == 20142 & q_stop.n == 20142,
+  1,0))) %>% 
+  mutate("2014.3" = 
+  ifelse(q_start.n <= 20143 & q_stop.n > 20143,
+  1,ifelse(q_start.n == 20143 & q_stop.n == 20143,
+  1,0))) %>% 
+  mutate("2014.4" = 
+  ifelse(q_start.n <= 20144 & q_stop.n > 20144,
+  1,ifelse(q_start.n == 20144 & q_stop.n == 20144,
+  1,0))) %>% 
+  
+  mutate("2015.1" = 
+  ifelse(q_start.n <= 20151 & q_stop.n > 20151,
+  1,ifelse(q_start.n == 20151 & q_stop.n == 20151,
+  1,0))) %>% 
+  mutate("2015.2" = 
+  ifelse(q_start.n <= 20152 & q_stop.n > 20152,
+  1,ifelse(q_start.n == 20152 & q_stop.n == 20152,
+  1,0))) %>% 
+  mutate("2015.3" = 
+  ifelse(q_start.n <= 20153 & q_stop.n > 20153,
+  1,ifelse(q_start.n == 20153 & q_stop.n == 20153,
+  1,0))) %>% 
+  mutate("2015.4" = 
+  ifelse(q_start.n <= 20154 & q_stop.n > 20154,
+  1,ifelse(q_start.n == 20154 & q_stop.n == 20154,
+  1,0))) %>%
+  
+  mutate("2016.1" = 
+  ifelse(q_start.n <= 20161 & q_stop.n > 20161,
+  1,ifelse(q_start.n == 20161 & q_stop.n == 20161,
+  1,0))) %>% 
+  mutate("2016.2" = 
+  ifelse(q_start.n <= 20162 & q_stop.n > 20162,
+  1,ifelse(q_start.n == 20162 & q_stop.n == 20162,
+  1,0))) %>% 
+  mutate("2016.3" = 
+  ifelse(q_start.n <= 20163 & q_stop.n > 20163,
+  1,ifelse(q_start.n == 20163 & q_stop.n == 20163,
+  1,0))) %>% 
+  mutate("2016.4" = 
+  ifelse(q_start.n <= 20164 & q_stop.n > 20164,
+  1,ifelse(q_start.n == 20164 & q_stop.n == 20164,
+  1,0))) %>%
+  
+  mutate("2017.1" = 
+  ifelse(q_start.n <= 20171 & q_stop.n > 20171,
+  1,ifelse(q_start.n == 20171 & q_stop.n == 20171,
+  1,0))) %>% 
+  mutate("2017.2" = 
+  ifelse(q_start.n <= 20172 & q_stop.n > 20172,
+  1,ifelse(q_start.n == 20172 & q_stop.n == 20172,
+  1,0))) %>% 
+  mutate("2017.3" = 
+  ifelse(q_start.n <= 20173 & q_stop.n > 20173,
+  1,ifelse(q_start.n == 20173 & q_stop.n == 20173,
+  1,0))) %>% 
+  mutate("2017.4" = 
+  ifelse(q_start.n <= 20174 & q_stop.n > 20174,
+  1,ifelse(q_start.n == 20174 & q_stop.n == 20174,
+  1,0))) %>%
+  
+  mutate("2018.1" = 
+  ifelse(q_start.n <= 20181 & q_stop.n > 20181,
+  1,ifelse(q_start.n == 20181 & q_stop.n == 20181,
+  1,0))) %>% 
+  mutate("2018.2" = 
+  ifelse(q_start.n <= 20182 & q_stop.n > 20182,
+  1,ifelse(q_start.n == 20182 & q_stop.n == 20182,
+  1,0))) %>% 
+  mutate("2018.3" = 
+  ifelse(q_start.n <= 20183 & q_stop.n > 20183,
+  1,ifelse(q_start.n == 20183 & q_stop.n == 20183,
+  1,0))) %>% 
+  mutate("2018.4" = 
+  ifelse(q_start.n <= 20184 & q_stop.n > 20184,
+  1,ifelse(q_start.n == 20184 & q_stop.n == 20184,
+  1,0)))
+
+analyst_quarter_contract_tidy <- analyst_quarter_contract[c(1,4:28)] %>% 
+  gather(year,n,3:26) %>%
+  select(year,preaward_contact, n) %>% 
+  group_by(year, preaward_contact) %>% 
+  summarise(number=sum(n)) %>% 
+  spread(year,number) %>% 
+  adorn_totals() 
+
+
+table3 <- analyst_quarter_contract_tidy 
+```
+
+
+```{r (t4)_yearly_dept_c}
+#yearly data by department
+dept_year_contract <- contracts_only %>% 
+select(year_start.n, year_stop.n, e_cris_contract_nbr,dept) %>%
+  mutate(FY2013 = ifelse(year_start.n <= 2013 & year_stop.n > 2013,
+  1,ifelse(year_start.n == 2013 & year_stop.n == 2013,
+  1,0))) %>% 
+  mutate(FY2014 = ifelse(year_start.n <= 2014 & year_stop.n > 2014,
+  1,ifelse(year_start.n == 2014 & year_stop.n == 2014,
+  1,0))) %>% 
+  mutate(FY2015 = ifelse(year_start.n <= 2015 & year_stop.n > 2015,
+  1, ifelse(year_start.n == 2015 & year_stop.n == 2015,
+  1,0))) %>% 
+  mutate(FY2016 = ifelse(year_start.n <= 2016 & year_stop.n > 2016,
+  1, ifelse(year_start.n == 2016 & year_stop.n == 2016,
+  1,0))) %>%
+  mutate(FY2017 = ifelse(year_start.n <= 2017 & year_stop.n > 2017,
+  1, ifelse(year_start.n == 2017 & year_stop.n == 2017,
+  1,0))) %>%   
+  mutate(FY2018 = ifelse(year_start.n <= 2018 & year_stop.n == 2018,
+  1,0))
+
+dept_year_contract_tidy <- dept_year_contract[c(3:10)] %>% 
+  gather(year,n,3:8) %>%
+  select(year,dept,n) %>% 
+  group_by(year,dept) %>% 
+  summarise(number=sum(n)) %>% 
+  mutate(dept=
+  ifelse(is.na(dept),
+  "Unspecified",dept)) %>% 
+  ungroup() %>% 
+  spread(year,number)
+  
+table4 <- dept_year_contract_tidy
+```
+
+
+```{r filter_to_amendment}
+amendment_only <- org_contracts %>% 
+  #filter out non-amendment**********************************************
+  filter(contract_type=="Amendment") %>%
+  #filter out studies without an irb submit, we need an IRB submit as a start date
+  filter(!is.na(irb_study_submitted_dt)) %>% 
+  
+#Use irb study submitted date as the start date (all fiscal year here)
+mutate(irb_study_submitted_dt=substr(irb_study_submitted_dt, 1, 10)) %>% 
+mutate(start_date = as_date(ymd(irb_study_submitted_dt))) %>%
+mutate(year_start = ifelse(
+  start_date < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  start_date < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  start_date < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  start_date < ymd("2016-07-01"),
+  "2016",
+  ifelse(start_date < ymd("2017-07-01"), 
+  "2017", "2018")))))) %>% 
+  mutate(c.quarter_start = quarter(irb_study_submitted_dt)) %>% 
+  mutate(f.quarter_start = recode(c.quarter_start, "1"="3", "2"='4', "3"='1', "4"='2', .default = "unknown")) %>% 
+  mutate(q_start = paste0(year_start, f.quarter_start)) %>% 
+ 
+#Use negotiation complete date as end date
+  mutate(negotiation_complete_dt=substr(negotiation_complete_dt, 1, 10)) %>%
+  mutate(stop_date = as_date(ymd(negotiation_complete_dt))) %>%
+  mutate(year_stop = ifelse(
+  stop_date < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  stop_date < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  stop_date < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  stop_date < ymd("2016-07-01"),
+  "2016",
+  ifelse(stop_date < ymd("2017-07-01"),
+  "2017", "2018")))))) %>% 
+  mutate(c.quarter_stop = quarter(negotiation_complete_dt)) %>% 
+  mutate(f.quarter_stop = recode(c.quarter_stop, "1"="3", "2"='4', "3"='1', "4"='2', .default = "unknown")) %>% 
+  mutate(q_stop = paste0(year_stop, f.quarter_stop)) %>% 
+  
+ mutate(year_start.n = as.numeric(year_start)) %>%
+ mutate(year_stop.n = as.numeric(year_stop)) %>%
+ mutate(year_stop.n = ifelse(
+    is.na(year_stop.n),
+    2018,
+    year_stop.n ))%>% 
+ mutate(num.year = year_stop.n - year_start.n + 1) %>% 
+
+ mutate(q_start.n = as.numeric(q_start)) %>%
+ mutate(q_stop.n = as.numeric(q_stop)) %>% 
+ mutate(q_stop.n = ifelse(
+    is.na(q_stop.n),
+    20183,
+    q_stop.n ))
+```
+
+```{r (t5)_yearly_data_a}
+#yearly data preparation for amendment
+year_amendment <- amendment_only %>% 
+select(year_start.n, year_stop.n, e_cris_contract_nbr) %>%
+  mutate(FY2013 = ifelse(year_start.n <= 2013 & year_stop.n > 2013,
+  1,ifelse(year_start.n == 2013 & year_stop.n == 2013,
+  1,0))) %>% 
+  mutate(FY2014 = ifelse(year_start.n <= 2014 & year_stop.n > 2014,
+  1,ifelse(year_start.n == 2014 & year_stop.n == 2014,
+  1,0))) %>% 
+  mutate(FY2015 = ifelse(year_start.n <= 2015 & year_stop.n > 2015,
+  1, ifelse(year_start.n == 2015 & year_stop.n == 2015,
+  1,0))) %>% 
+  mutate(FY2016 = ifelse(year_start.n <= 2016 & year_stop.n > 2016,
+  1, ifelse(year_start.n == 2016 & year_stop.n == 2016,
+  1,0))) %>%
+  mutate(FY2017 = ifelse(year_start.n <= 2017 & year_stop.n > 2017,
+  1, ifelse(year_start.n == 2017 & year_stop.n == 2017,
+  1,0))) %>%   
+  mutate(FY2018 = ifelse(year_start.n <= 2018 & year_stop.n == 2018,
+  1,0))
+
+year_amendment <- year_amendment[c(3:9)] %>% 
+  gather(year,n,2:7) %>%
+  select(year,n) %>% 
+  group_by(year) %>% 
+  summarise(number=sum(n))
+
+table5 <- year_amendment
+```
+
+```{r (t6)_quarterly_data_a}
+#quarterly data preparation for amendment
+quarter_amendment <- amendment_only %>% 
+select(q_start.n, q_stop.n, e_cris_contract_nbr) %>%
+  
+  mutate("2013.1" = 
+  ifelse(q_start.n <= 20131 & q_stop.n > 20131,
+  1,ifelse(q_start.n == 20131 & q_stop.n == 20131,
+  1,0))) %>% 
+  mutate("2013.2" = 
+  ifelse(q_start.n <= 20132 & q_stop.n > 20132,
+  1,ifelse(q_start.n == 20132 & q_stop.n == 20132,
+  1,0))) %>% 
+  mutate("2013.3" = 
+  ifelse(q_start.n <= 20133 & q_stop.n > 20133,
+  1,ifelse(q_start.n == 20133 & q_stop.n == 20133,
+  1,0))) %>% 
+  mutate("2013.4" = 
+  ifelse(q_start.n <= 20134 & q_stop.n > 20134,
+  1,ifelse(q_start.n == 20134 & q_stop.n == 20134,
+  1,0))) %>% 
+  
+  mutate("2014.1" = 
+  ifelse(q_start.n <= 20141 & q_stop.n > 20141,
+  1,ifelse(q_start.n == 20141 & q_stop.n == 20141,
+  1,0))) %>% 
+  mutate("2014.2" = 
+  ifelse(q_start.n <= 20142 & q_stop.n > 20142,
+  1,ifelse(q_start.n == 20142 & q_stop.n == 20142,
+  1,0))) %>% 
+  mutate("2014.3" = 
+  ifelse(q_start.n <= 20143 & q_stop.n > 20143,
+  1,ifelse(q_start.n == 20143 & q_stop.n == 20143,
+  1,0))) %>% 
+  mutate("2014.4" = 
+  ifelse(q_start.n <= 20144 & q_stop.n > 20144,
+  1,ifelse(q_start.n == 20144 & q_stop.n == 20144,
+  1,0))) %>% 
+  
+  mutate("2015.1" = 
+  ifelse(q_start.n <= 20151 & q_stop.n > 20151,
+  1,ifelse(q_start.n == 20151 & q_stop.n == 20151,
+  1,0))) %>% 
+  mutate("2015.2" = 
+  ifelse(q_start.n <= 20152 & q_stop.n > 20152,
+  1,ifelse(q_start.n == 20152 & q_stop.n == 20152,
+  1,0))) %>% 
+  mutate("2015.3" = 
+  ifelse(q_start.n <= 20153 & q_stop.n > 20153,
+  1,ifelse(q_start.n == 20153 & q_stop.n == 20153,
+  1,0))) %>% 
+  mutate("2015.4" = 
+  ifelse(q_start.n <= 20154 & q_stop.n > 20154,
+  1,ifelse(q_start.n == 20154 & q_stop.n == 20154,
+  1,0))) %>%
+  
+  mutate("2016.1" = 
+  ifelse(q_start.n <= 20161 & q_stop.n > 20161,
+  1,ifelse(q_start.n == 20161 & q_stop.n == 20161,
+  1,0))) %>% 
+  mutate("2016.2" = 
+  ifelse(q_start.n <= 20162 & q_stop.n > 20162,
+  1,ifelse(q_start.n == 20162 & q_stop.n == 20162,
+  1,0))) %>% 
+  mutate("2016.3" = 
+  ifelse(q_start.n <= 20163 & q_stop.n > 20163,
+  1,ifelse(q_start.n == 20163 & q_stop.n == 20163,
+  1,0))) %>% 
+  mutate("2016.4" = 
+  ifelse(q_start.n <= 20164 & q_stop.n > 20164,
+  1,ifelse(q_start.n == 20164 & q_stop.n == 20164,
+  1,0))) %>%
+  
+  mutate("2017.1" = 
+  ifelse(q_start.n <= 20171 & q_stop.n > 20171,
+  1,ifelse(q_start.n == 20171 & q_stop.n == 20171,
+  1,0))) %>% 
+  mutate("2017.2" = 
+  ifelse(q_start.n <= 20172 & q_stop.n > 20172,
+  1,ifelse(q_start.n == 20172 & q_stop.n == 20172,
+  1,0))) %>% 
+  mutate("2017.3" = 
+  ifelse(q_start.n <= 20173 & q_stop.n > 20173,
+  1,ifelse(q_start.n == 20173 & q_stop.n == 20173,
+  1,0))) %>% 
+  mutate("2017.4" = 
+  ifelse(q_start.n <= 20174 & q_stop.n > 20174,
+  1,ifelse(q_start.n == 20174 & q_stop.n == 20174,
+  1,0))) %>%
+  
+  mutate("2018.1" = 
+  ifelse(q_start.n <= 20181 & q_stop.n > 20181,
+  1,ifelse(q_start.n == 20181 & q_stop.n == 20181,
+  1,0))) %>% 
+  mutate("2018.2" = 
+  ifelse(q_start.n <= 20182 & q_stop.n > 20182,
+  1,ifelse(q_start.n == 20182 & q_stop.n == 20182,
+  1,0))) %>% 
+  mutate("2018.3" = 
+  ifelse(q_start.n <= 20183 & q_stop.n > 20183,
+  1,ifelse(q_start.n == 20183 & q_stop.n == 20183,
+  1,0))) %>% 
+  mutate("2018.4" = 
+  ifelse(q_start.n <= 20184 & q_stop.n > 20184,
+  1,ifelse(q_start.n == 20184 & q_stop.n == 20184,
+  1,0)))
+
+quarter_amendment_tidy <- quarter_amendment[c(3:27)] %>% 
+  gather(year,n,2:25) %>%
+  select(year,n) %>% 
+  group_by(year) %>% 
+  summarise(number=sum(n))
+
+table6 <- quarter_amendment_tidy
+
+```
+
+```{r (t7)_quarterly_analyst_a}
+#quarterly analyst data preparation for amendment
+analyst_quarter_amendment <- amendment_only %>% 
+select(preaward_contact, q_start.n, q_stop.n, e_cris_contract_nbr) %>%
+  
+  mutate("2013.1" = 
+  ifelse(q_start.n <= 20131 & q_stop.n > 20131,
+  1,ifelse(q_start.n == 20131 & q_stop.n == 20131,
+  1,0))) %>% 
+  mutate("2013.2" = 
+  ifelse(q_start.n <= 20132 & q_stop.n > 20132,
+  1,ifelse(q_start.n == 20132 & q_stop.n == 20132,
+  1,0))) %>% 
+  mutate("2013.3" = 
+  ifelse(q_start.n <= 20133 & q_stop.n > 20133,
+  1,ifelse(q_start.n == 20133 & q_stop.n == 20133,
+  1,0))) %>% 
+  mutate("2013.4" = 
+  ifelse(q_start.n <= 20134 & q_stop.n > 20134,
+  1,ifelse(q_start.n == 20134 & q_stop.n == 20134,
+  1,0))) %>% 
+  
+  mutate("2014.1" = 
+  ifelse(q_start.n <= 20141 & q_stop.n > 20141,
+  1,ifelse(q_start.n == 20141 & q_stop.n == 20141,
+  1,0))) %>% 
+  mutate("2014.2" = 
+  ifelse(q_start.n <= 20142 & q_stop.n > 20142,
+  1,ifelse(q_start.n == 20142 & q_stop.n == 20142,
+  1,0))) %>% 
+  mutate("2014.3" = 
+  ifelse(q_start.n <= 20143 & q_stop.n > 20143,
+  1,ifelse(q_start.n == 20143 & q_stop.n == 20143,
+  1,0))) %>% 
+  mutate("2014.4" = 
+  ifelse(q_start.n <= 20144 & q_stop.n > 20144,
+  1,ifelse(q_start.n == 20144 & q_stop.n == 20144,
+  1,0))) %>% 
+  
+  mutate("2015.1" = 
+  ifelse(q_start.n <= 20151 & q_stop.n > 20151,
+  1,ifelse(q_start.n == 20151 & q_stop.n == 20151,
+  1,0))) %>% 
+  mutate("2015.2" = 
+  ifelse(q_start.n <= 20152 & q_stop.n > 20152,
+  1,ifelse(q_start.n == 20152 & q_stop.n == 20152,
+  1,0))) %>% 
+  mutate("2015.3" = 
+  ifelse(q_start.n <= 20153 & q_stop.n > 20153,
+  1,ifelse(q_start.n == 20153 & q_stop.n == 20153,
+  1,0))) %>% 
+  mutate("2015.4" = 
+  ifelse(q_start.n <= 20154 & q_stop.n > 20154,
+  1,ifelse(q_start.n == 20154 & q_stop.n == 20154,
+  1,0))) %>%
+  
+  mutate("2016.1" = 
+  ifelse(q_start.n <= 20161 & q_stop.n > 20161,
+  1,ifelse(q_start.n == 20161 & q_stop.n == 20161,
+  1,0))) %>% 
+  mutate("2016.2" = 
+  ifelse(q_start.n <= 20162 & q_stop.n > 20162,
+  1,ifelse(q_start.n == 20162 & q_stop.n == 20162,
+  1,0))) %>% 
+  mutate("2016.3" = 
+  ifelse(q_start.n <= 20163 & q_stop.n > 20163,
+  1,ifelse(q_start.n == 20163 & q_stop.n == 20163,
+  1,0))) %>% 
+  mutate("2016.4" = 
+  ifelse(q_start.n <= 20164 & q_stop.n > 20164,
+  1,ifelse(q_start.n == 20164 & q_stop.n == 20164,
+  1,0))) %>%
+  
+  mutate("2017.1" = 
+  ifelse(q_start.n <= 20171 & q_stop.n > 20171,
+  1,ifelse(q_start.n == 20171 & q_stop.n == 20171,
+  1,0))) %>% 
+  mutate("2017.2" = 
+  ifelse(q_start.n <= 20172 & q_stop.n > 20172,
+  1,ifelse(q_start.n == 20172 & q_stop.n == 20172,
+  1,0))) %>% 
+  mutate("2017.3" = 
+  ifelse(q_start.n <= 20173 & q_stop.n > 20173,
+  1,ifelse(q_start.n == 20173 & q_stop.n == 20173,
+  1,0))) %>% 
+  mutate("2017.4" = 
+  ifelse(q_start.n <= 20174 & q_stop.n > 20174,
+  1,ifelse(q_start.n == 20174 & q_stop.n == 20174,
+  1,0))) %>%
+  
+  mutate("2018.1" = 
+  ifelse(q_start.n <= 20181 & q_stop.n > 20181,
+  1,ifelse(q_start.n == 20181 & q_stop.n == 20181,
+  1,0))) %>% 
+  mutate("2018.2" = 
+  ifelse(q_start.n <= 20182 & q_stop.n > 20182,
+  1,ifelse(q_start.n == 20182 & q_stop.n == 20182,
+  1,0))) %>% 
+  mutate("2018.3" = 
+  ifelse(q_start.n <= 20183 & q_stop.n > 20183,
+  1,ifelse(q_start.n == 20183 & q_stop.n == 20183,
+  1,0))) %>% 
+  mutate("2018.4" = 
+  ifelse(q_start.n <= 20184 & q_stop.n > 20184,
+  1,ifelse(q_start.n == 20184 & q_stop.n == 20184,
+  1,0)))
+
+analyst_quarter_amendment_tidy <- analyst_quarter_amendment[c(1,4:28)] %>%
+  gather(year,n,3:26) %>%
+  select(year,preaward_contact, n) %>% 
+  group_by(year, preaward_contact) %>% 
+  summarise(number=sum(n)) %>% 
+  spread(year,number) %>% 
+  adorn_totals()
+
+table7 <- analyst_quarter_amendment_tidy 
+```
+
+```{r (t8)_yearly_dept_a}
+#yearly data by department for amendment
+dept_year_amendment <- amendment_only %>% 
+select(year_start.n, year_stop.n, e_cris_contract_nbr,dept) %>%
+  mutate(FY2013 = ifelse(year_start.n <= 2013 & year_stop.n > 2013,
+  1,ifelse(year_start.n == 2013 & year_stop.n == 2013,
+  1,0))) %>% 
+  mutate(FY2014 = ifelse(year_start.n <= 2014 & year_stop.n > 2014,
+  1,ifelse(year_start.n == 2014 & year_stop.n == 2014,
+  1,0))) %>% 
+  mutate(FY2015 = ifelse(year_start.n <= 2015 & year_stop.n > 2015,
+  1, ifelse(year_start.n == 2015 & year_stop.n == 2015,
+  1,0))) %>% 
+  mutate(FY2016 = ifelse(year_start.n <= 2016 & year_stop.n > 2016,
+  1, ifelse(year_start.n == 2016 & year_stop.n == 2016,
+  1,0))) %>%
+  mutate(FY2017 = ifelse(year_start.n <= 2017 & year_stop.n > 2017,
+  1, ifelse(year_start.n == 2017 & year_stop.n == 2017,
+  1,0))) %>%   
+  mutate(FY2018 = ifelse(year_start.n <= 2018 & year_stop.n == 2018,
+  1,0))
+
+dept_year_amendment_tidy <- dept_year_amendment[c(3:10)] %>% 
+  gather(year,n,3:8) %>%
+  select(year,dept,n) %>% 
+  group_by(year,dept) %>% 
+  summarise(number=sum(n)) %>% 
+  mutate(dept=
+  ifelse(is.na(dept),
+  "Unspecified",dept)) %>% 
+  ungroup() %>% 
+  spread(year,number)
+  
+table8 <- dept_year_amendment_tidy
+```
+
+Sidebar {.sidebar}
+=====================================
+
+### Data Sources: Cognos
+
+### Data pull date: 
+####March 29th, 2018
+
+### Notes:
+
+####To be included in this report, studies have to have a IRB study submission date
+####Studies are counted in each year/quarter that they are active. If an unique study negotiation lasts for more than a year, for example, it started on FY2014 and ended on FY2016, this study will be counted as a active study on FY2014 and FY2015.  
+
+Tables  {data-navmenu="Contract"}
+=====================================  
+Column {data-width=150}
+-------------------------------------------------------------------
+###Number of Active Studies by Fiscal Year {data-width=80}
+```{r table1}
+
+kable(table1, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+###Number of Active Studies by Fiscal Year and Quarter {data-width=80}
+```{r table2}
+
+kable(table2, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+Column {data-width=400}
+-----------------------------------------------------------------------
+### Number of Active Studies by Fiscal Year and Department {data-width=400}
+```{r table4}
+
+kable(table4, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+By Analyst  {data-navmenu="Contract"}
+=====================================  
+Column {data-width=100}
+-----------------------------------------------------------------------
+### Number of Active Studies by Fiscal Year quarter and Analyst {data-width=100}
+```{r table3}
+
+kable(table3, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+Tables  {data-navmenu="Amendment"}
+=====================================  
+Column {data-width=150}
+-------------------------------------------------------------------
+### Number of Active Studies by Fiscal Year (Amendment) {data-width=80}
+```{r table5}
+
+kable(table5, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+###Number of Active Studies by Fiscal Year and Quarter (Amendment) {data-width=80}
+```{r table6}
+
+kable(table6, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+### Number of Active Studies by Fiscal Year and Department (Amendment) {data-width=400}
+```{r table8}
+
+kable(table8, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+By Analyst  {data-navmenu="Amendment"}
+=====================================  
+Column {data-width=100}
+-----------------------------------------------------------------------
+### Number of Active Studies by Fiscal Year quarter and Analyst (Amendment) {data-width=100}
+```{r table7}
+
+kable(table7, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+

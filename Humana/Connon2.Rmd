@@ -1,0 +1,135 @@
+---
+title: "Connon2"
+author: "Leslie"
+date: "September 3, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","gtable") # list packages needed
+```
+
+```{r data_locations}
+unit_csv <- 'raw_data/unit_raw.csv'
+revenue_csv <- 'raw_data/revenue_raw_18.csv'
+state_csv <- 'raw_data/state_raw.csv'
+```
+
+```{r read_in}
+unit_raw <- read_csv(unit_csv) %>% clean_names()
+revenue_raw <- read_csv(revenue_csv) %>% clean_names()
+state_raw <- read_csv(state_csv) %>% clean_names()
+```
+
+```{r}
+
+revenue_clean <- revenue_raw %>% 
+  filter(crm!=0) %>% 
+  mutate(start=y1701 + 
+               y1702 +
+               y1703 + 
+               y1704 +
+               y1705 + 
+               y1706 +
+               y1707) %>% 
+  mutate(end=  y1801 + 
+               y1802 +
+               y1803 + 
+               y1804 +
+               y1805 + 
+               y1806 +
+               y1807)
+```
+
+```{r}
+
+state <- state_raw %>% 
+  select(crm=member_id, state)
+
+rev_call <- revenue_clean %>% 
+  left_join(state, by= "crm")%>%
+  select(crm,start,end,state) %>% 
+mutate(state=trimws(state)) %>% 
+  
+  mutate(hum=ifelse(state=="Arizona"|
+                    state=="Arkansas"|
+                    state=="Nevada"|
+                    state=="Ohio"|
+                    state=="Oklahoma"|
+                    state=="Texas"|
+                    state=="Washington",
+              "old",
+             ifelse(state=="Alabama"|
+                    state=="Colorado"|
+                    state=="Georgia"|
+                    state=="Idaho"|
+                    state=="Illinois"|
+                    state=="Indiana"|
+                    state=="Iowa"|
+                    state=="Kansas"|
+                    state=="Kentucky"|
+                    state=="Louisiana"|
+                    state=="Michigan"|
+                    state=="Minnesota"|
+                    state=="Mississippi"|
+                    state=="Missouri"|
+                    state=="Montana"|
+                    state=="Nebraska"|
+                    state=="New Mexico"|
+                    state=="North Carolina"|
+                    state=="North Dakota"|
+                    state=="Oregon"|
+                    state=="Pennsylvania"|
+                    state=="South Carolina"|
+                    state=="South Dakota"|
+                    state=="Utah"|
+                    state=="Virginia"|
+                    state=="West Virginia"|
+                    state=="Wisconsin",
+              "new", "untouched"))) %>% 
+mutate(GR=(end/start)-1) %>% 
+  filter(!is.na(hum))
+
+old_new <- rev_call %>% 
+  filter(hum=="new"|hum=="old")
+t.test(GR ~ hum,old_new )
+
+old_untouched <- rev_call %>% 
+  filter(hum=="untouched"|hum=="old")
+t.test(GR ~ hum, old_untouched )
+
+new_untouched <- rev_call %>% 
+  filter(hum=="new"|hum=="untouched")
+t.test(GR ~ hum, new_untouched )
+
+
+sum1 <- rev_call %>% 
+  group_by(hum) %>% 
+  summarise(number = n(),mean_gr = mean(GR))
+
+sum2 <- rev_call %>% 
+  summarise(number = n(),mean_gr = mean(GR))
+            
+rev_17_final<- rev_hum %>%        
+select(hum,total_month,weight) %>% 
+  group_by(hum) %>% 
+  summarise(sum_grow = sum(weight),sum_month=sum(total_month)) %>% 
+  mutate(rate=sum_grow/(sum_month/12))
+  
+  
+```
+```{r}
+pwr.t2n.test(n1 =86 , n2=64 , d =0.06840977 , sig.level =0.05, power = )
+```
+
+```{r}
+(0.06180870-0.03845066)/(sd(new_untouched$GR))
+```
+

@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1536183277444.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "D63DDC0C",
+    "lastKnownWriteTime" : 3419473789575321445,
+    "last_content_update" : 1536183277444,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "89A891C1",
+        "caption" : "revenue_combo",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=revenue_combo&cache_key=89A891C1",
+        "displayedObservations" : "25606",
+        "environment" : "",
+        "object" : "revenue_combo",
+        "preview" : "0",
+        "totalObservations" : "25606",
+        "variables" : "6"
+    },
+    "relative_order" : 7,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

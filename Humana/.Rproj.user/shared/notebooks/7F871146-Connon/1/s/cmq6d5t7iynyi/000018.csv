@@ -1,0 +1,5 @@
+"0"," mutate(month_dum==total_month-12)
+"
+"2","Error in mutate(month_dum == total_month - 12) : 
+  object 'month_dum' not found
+"

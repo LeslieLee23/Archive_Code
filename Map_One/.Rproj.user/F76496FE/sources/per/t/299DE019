@@ -1,0 +1,24 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1542320525109.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3467301875",
+    "id" : "299DE019",
+    "lastKnownWriteTime" : 1542329066,
+    "last_content_update" : 1542329066674,
+    "path" : "C:/Users/LLee/Desktop/R files/Carrie/Carrie.Rmd",
+    "project_path" : "Carrie.Rmd",
+    "properties" : {
+        "cursorPosition" : "79,22",
+        "last_setup_crc32" : "432B1F3bb338d19",
+        "scrollLine" : "68",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

@@ -1,0 +1,215 @@
+---
+title: "Connon"
+author: "Leslie"
+date: "September 3, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","gtable") # list packages needed
+```
+
+```{r data_locations}
+unit_csv <- 'raw_data/unit_raw.csv'
+revenue_csv <- 'raw_data/revenue_raw.csv'
+state_csv <- 'raw_data/state_raw.csv'
+```
+
+```{r read_in}
+unit_raw <- read_csv(unit_csv) %>% clean_names()
+revenue_raw <- read_csv(revenue_csv) %>% clean_names()
+state_raw <- read_csv(state_csv) %>% clean_names()
+```
+
+```{r}
+
+revenue_clean <- revenue_raw %>% 
+  filter(crm!=0)
+ 
+unit_clean <- unit_raw %>% 
+   filter(crm!=0)
+
+rev_clean <- revenue_raw %>% 
+   filter(crm!=0)
+
+unit_revenue <- unit_clean %>%
+  left_join(revenue_clean, by = "crm") 
+
+  
+```
+
+```{r}
+ rev_long<- rev_clean %>% 
+
+gather(month,revenue,2:116) %>%
+  filter (!is.na(revenue)) %>% 
+
+  group_by(crm) %>%
+    mutate(rank = order(order(month, decreasing=FALSE)))
+  
+ rev_count_17 <- rev_long %>% 
+   group_by(crm) %>% 
+   filter (month!="y1801") %>% 
+   filter (month!="y1802") %>% 
+   filter (month!="y1803") %>% 
+   filter (month!="y1804") %>% 
+   filter (month!="y1805") %>% 
+   filter (month!="y1806") %>% 
+   filter (month!="y1807") %>% 
+    summarise(total_month = n())
+
+rev_combo_17 <- rev_long %>% 
+    left_join(rev_count_17, by = "crm") %>% 
+   group_by(crm) %>% 
+   filter(total_month >=6) %>% 
+   
+   mutate(length=ifelse(total_month<12,1,ifelse(total_month<24,2,0)))
+ 
+##Obs dropped from 530 to 482 when practice who joined less than 6 months are dropped, 48 practices were dropped
+# revenue_count2<- revenue_combo %>% 
+#  group_by(crm) %>% 
+#  summarise(toal_month = n()) %>% 
+#  filter(toal_month>=6)
+  
+```
+
+```{r}
+ rev_17 <- rev_combo_17 %>%
+  mutate(start1=ifelse(length==0 & rank<=12, 1,0)) %>% 
+  mutate(start2=ifelse(length==2 & rank<=6, 1,0)) %>% 
+  mutate(start3=ifelse(length==1 & rank<=3, 1,0)) %>% 
+  
+  mutate(end1=ifelse(length==0 & rank>total_month-12 & rank<=total_month, 1,0)) %>% 
+  mutate(end2=ifelse(length==2 & rank>total_month-6 & rank<=total_month, 1,0)) %>% 
+  mutate(end3=ifelse(length==1 & rank>total_month-3 & rank<=total_month, 1,0)) %>% 
+  mutate(start= start1 + start2 + start3) %>% 
+  mutate(end= end1 + end2 + end3) %>% 
+  mutate(period=ifelse(end==1,"end",ifelse(start==1,"start",0)))  %>% 
+  
+  filter(start==1 | end==1)
+
+rev_cal <- rev_17 %>%
+  select(crm,period, month, revenue) %>% 
+  filter(period!=0) %>% 
+  mutate(crm_period=paste0(crm,period)) %>% 
+  group_by(crm_period) %>% 
+  summarise(sum_rev = sum(revenue)) %>% 
+  mutate(crm=substr(crm_period, 1, 4)) %>% 
+  mutate(period=substr(crm_period, 5, 9)) %>% 
+  select(crm, period, sum_rev) %>% 
+  mutate(crm=as.numeric(crm)) %>% 
+  group_by(crm) %>% 
+  spread(period, sum_rev)
+
+rev_17_l <- rev_17 %>% 
+  select(crm,length)
+
+rev_17_len <- unique(rev_17_l)
+
+state <- state_raw %>% 
+  select(crm=member_id, irl, term_date, state)
+
+rev_all <- rev_cal %>% 
+  left_join(rev_count_17, by = "crm") %>% 
+  left_join(rev_17_len, by = "crm") %>% 
+  left_join(state, by= "crm")%>% 
+  filter(!is.na(state)) %>% 
+  
+  mutate(n=ifelse(length==0, total_month/12, ifelse(length==2, total_month/6, ifelse(length==1, total_month/3,"Error")))) %>% 
+   
+  mutate(units=ifelse(length==0, 12, ifelse(length==2, 6, ifelse(length==1, 3 ,0)))) %>% 
+  
+  mutate(end=ifelse(end<0,1,end)) %>% 
+  
+  mutate(GR2017=(end/start)^(1/n) - 1) %>% 
+  mutate(weight=ifelse(length==0,GR2017*n, GR2017*(total_month/12)))
+
+```
+
+```{r}
+rev_hum <- rev_all %>% 
+  mutate(state=trimws(state)) %>% 
+  
+  mutate(hum=ifelse(state=="Arizona"|
+                    state=="Arkansas"|
+                    state=="Nevada"|
+                    state=="Ohio"|
+                    state=="Oklahoma"|
+                    state=="Texas"|
+                    state=="Washington",
+              "old",
+             ifelse(state=="Alabama"|
+                    state=="Colorado"|
+                    state=="Georgia"|
+                    state=="Idaho"|
+                    state=="Illinois"|
+                    state=="Indiana"|
+                    state=="Iowa"|
+                    state=="Kansas"|
+                    state=="Kentucky"|
+                    state=="Louisiana"|
+                    state=="Michigan"|
+                    state=="Minnesota"|
+                    state=="Mississippi"|
+                    state=="Missouri"|
+                    state=="Montana"|
+                    state=="Nebraska"|
+                    state=="New Mexico"|
+                    state=="North Carolina"|
+                    state=="North Dakota"|
+                    state=="Oregon"|
+                    state=="Pennsylvania"|
+                    state=="South Carolina"|
+                    state=="South Dakota"|
+                    state=="Utah"|
+                    state=="Virginia"|
+                    state=="West Virginia"|
+                    state=="Wisconsin",
+              "new", "untouched")))
+
+old_new <- rev_hum %>% 
+  filter(hum=="new"|hum=="old")
+t.test(GR2017 ~ hum,old_new )
+
+old_untouched <- rev_hum %>% 
+  filter(hum=="untouched"|hum=="old")
+t.test(GR2017 ~ hum, old_untouched )
+
+new_untouched <- rev_hum %>% 
+  filter(hum=="new"|hum=="untouched")
+t.test(GR2017 ~ hum, new_untouched )
+
+old_new_w <- rev_hum %>% 
+  filter(hum=="new"|hum=="old")
+t.test(weight ~ hum,old_new )
+
+old_untouched_w <- rev_hum %>% 
+  filter(hum=="untouched"|hum=="old")
+t.test(weight ~ hum, old_untouched )
+
+new_untouched_w <- rev_hum %>% 
+  filter(hum=="new"|hum=="untouched")
+t.test(weight ~ hum, new_untouched )
+            
+rev_17_final<- rev_hum %>%        
+select(hum,total_month,weight,GR2017) %>% 
+  group_by(hum) %>% 
+  summarise(sum_grow = sum(weight),sum_month=sum(total_month), number=n(),ave_gr=mean(GR2017)) %>% 
+  mutate(rate=sum_grow/(sum_month/12))
+  
+  sum1 <-rev_hum %>% 
+    ungroup(crm) %>% 
+  summarise(ave_gr=mean(GR2017))
+  
+  sum2 <- rev_hum %>% 
+    ungroup(crm) %>% 
+    summarise(sum_grow = sum(weight),sum_month=sum(total_month), number=n(),ave_gr=mean(GR2017)) %>% 
+  mutate(rate=sum_grow/(sum_month/12))
+```

@@ -1,0 +1,752 @@
+---
+title: "TAT Metrics Dashboard"
+author: "OCTRI Office of Research Impact"
+date: '`r format(Sys.time(), "%B %d, %Y")`'
+output:
+  flexdashboard::flex_dashboard:
+    smooth_scroll: yes
+    vertical_layout: scroll
+  html_document:
+    df_print: paged
+  pdf_document: default
+      
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r notes}
+#1. Chunk name
+#If the chunk name end with "_c", it means that the chunk is for contract.
+#If the chunk name end with "-a", it means that the chunk is for amendment.
+#If the chunk name start with "(t1_p1)", it means that the chunk is preparing data for table1 and plot1.
+
+#2.Name for data frame
+#Names for contract data frames and those for amendment data frames are the same except that for amendment, there is a "_amen" or "_a" suffix. For example, the data frame "fy_year" is the TAT by fiscal year for contract and "fy_year_amen" is the TAT by fiscal year for amendment.
+
+#3.Coding sequence
+#The coding sequence in this markdown file is:
+# preparation for contract data -> preparation for amendment data -> flex_dashboard sidebar notes -> plot and table outputs arranged by flex_dashboard
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r load_packages}
+
+library(install.load)
+install_load("readr","readxl","haven","plyr","tidyr","stringr","ggplot2","ggthemes","knitr", "psych","kableExtra", "lubridate","tidyverse","scales","ggbeeswarm","hexbin","gridExtra","janitor","igraph","xtable","tint","rio","splitstackshape","DT","gtable", "labeling", "RColorBrewer", "packrat", "ggvis", "digest", "labeling", "munsell", "RColorBrewer", "Rcpp", "reshape2", "survival", "survminer", "grid", "flexdashboard","ggrepel","png","shiny","htmlwidgets", "digest", "bit", "visNetwork") # list packages needed
+
+ohsu <- c("#FFC939", "#5E97C9", "#585E60", "#57B147", "#002776", "#ED6D23", "#ED1941","#0E4D8F","#8B2252", "#BF3EFF", "#00EEEE")
+```
+
+```{r load_data, include=FALSE}
+
+#import all states for all contracts
+states <- read_csv("raw_data/Contract States Long 3.29.18.csv") %>% clean_names()
+#import all contract, study, and irb level data
+contracts <- read_csv("raw_Data/Contract Level Data 3.29.18.csv") %>% clean_names()
+#import funding sounce data
+funding_source <- read_csv("raw_Data/Funding Source 3.29.18.csv") %>% clean_names()
+#import crosswalk for orgs, to know department
+orgs <- import("raw_data/Departments and Orgs 3.29.18.csv") %>% clean_names()
+#import jellyfish data for earlier years
+jellyfish <- read_csv("raw_data/old_jelly_fish_darlene_data.csv") %>% clean_names()
+
+```
+
+```{r filter_to_contract}
+negotiated_contracts <- contracts %>% 
+  #filter out non-contracts***********************************************************
+  filter(contract_type=="Contract") %>%
+  #filter out those that don't have prospective consent
+  filter(prospective_consent_flag=="Yes") %>% 
+  #filter those that don't have a preaward contact
+  filter(!is.na(preaward_contact)) %>% 
+  #filter out contracts without a negotiation complete date
+  filter(!is.na(negotiation_complete_dt)) %>%
+  #create calendar year, fiscal year, and quarters for each of those categories
+  mutate(cy = year(negotiation_complete_dt)) %>% 
+  mutate(c.quarter = quarter(negotiation_complete_dt)) %>% 
+  mutate(f.quarter = recode(c.quarter, "1"="3", "2"='4', "3"='1', "4"='2', .default = "unknown")) %>% 
+  mutate(fy = ifelse(f.quarter>2,cy, (cy+1))) %>% 
+  mutate(cy_q = paste0(cy,".",c.quarter)) %>% 
+  mutate(fy_q = paste0(fy, ".",f.quarter)) %>% 
+  #data is complete starting in 2016, filter out studies that closed before then and use Jellyfish data
+  filter(cy>2015) %>% 
+  #filter(cy<2018) %>%
+  distinct() %>% 
+  #filter out studies without an irb submit, we need an IRB submit as a start date
+  filter(!is.na(irb_study_submitted_dt))
+
+#for old jellyfish data
+JellyDate <- jellyfish %>% 
+  mutate(irb_study_submitted_dt2=as_date(mdy(irb_study_submitted_dt))) %>% 
+  mutate(negotiation_start_dt2=as_date(mdy(negotiation_start_dt))) %>% 
+  mutate(negotiation_complete_dt2=as_date(mdy(negotiation_complete_dt))) %>% 
+  mutate(irb_approval_dt2=as_date(mdy(irb_approval_dt))) %>% 
+  mutate(executed_dt2=as_date(mdy(executed_dt))) %>% 
+  mutate(contract_status_change_dt2=as_date(mdy(contract_status_change_dt))) %>% 
+  mutate(cy = year(negotiation_complete_dt2)) %>% 
+  mutate(month = month(negotiation_complete_dt2)) %>% 
+  mutate(c.quarter = quarter(negotiation_complete_dt2)) %>% 
+  mutate(f.quarter = recode(c.quarter, "1"="3", "2"='4', "3"='1', "4"='2', .default = "unknown")) %>% 
+  mutate(fy = ifelse(f.quarter>2,cy, (cy+1))) %>% 
+  mutate(cy_q = paste0(cy,".",c.quarter)) %>% 
+  mutate(fy_q = paste0(fy, ".",f.quarter)) %>% 
+  #calculate days between irb submitted and negotiation complete 
+  mutate(TAT = interval(irb_study_submitted_dt2, negotiation_complete_dt2)/ddays(1))
+
+f.jelly <- JellyDate %>% 
+  filter(!is.na(negotiation_complete_dt2)) %>% 
+  filter(fy>=2013) %>% 
+  filter(fy<=2015 | fy_q=="2016.1"|fy_q=="2016.2")
+
+c.jelly <- JellyDate %>% 
+  filter(!is.na(negotiation_complete_dt2)) %>% 
+  filter(cy>=2013) %>% 
+  filter(cy<=2015)
+```
+
+```{r bring_in_funding_source_c}
+industry_funded <- funding_source %>% 
+  filter(!is.na(e_cris_contract_nbr)) %>% 
+  filter(funding_source_type=="Industry") %>% 
+  #creates a dataset of industry funded contracts
+  distinct(e_cris_contract_nbr, funding_source_type)
+
+industry_contracts <- negotiated_contracts %>%
+  left_join(industry_funded, by = "e_cris_contract_nbr") %>% 
+  filter(funding_source_type=="Industry") %>% 
+  filter(pi_initiated_flag=="No")
+```
+
+```{r summarize_states_c}
+#this takes the states data and filters it down to only relevant states and studies
+states_time <- states %>%
+  full_join(industry_contracts, by = 'e_cris_contract_nbr', suffix = c("", "_contracts")) %>%
+  #filter out states data that does not pertain to an industry contract
+  filter(funding_source_type=="Industry") %>% 
+  #remove states that happened after the negotiation complete date
+  filter(state_entry_dt<negotiation_complete_dt) %>% 
+  #remove states that happened before the irb_submit date
+  filter(state_entry_dt>irb_study_submitted_dt) %>% 
+  #create variable of how many days a study was in a particular state
+  mutate(state_days = interval(state_entry_dt, state_exit_dt)/ddays(1)) %>% 
+  mutate(state_days=round(state_days,1)) %>% 
+  #narrow dataset to relevant fields for analysis of states
+  dplyr::select(e_cris_contract_nbr, state = workflow_state_from, state_days)
+
+#creates a dataset of hold time based on contract states
+hold_time <- states_time %>% 
+  filter(grepl("Hold", state)|grepl("hold", state)) %>% 
+  group_by(e_cris_contract_nbr) %>%
+  summarise(calculated_hold_time = sum(state_days))
+
+#creates a dataset of total time (in days) a study spends in an OHSU review state
+ohsu_time <- states_time %>% 
+  filter(grepl("OHSU", state)|grepl("ohsu", state)) %>% 
+  group_by(e_cris_contract_nbr) %>%
+  summarise(ohsu_review_time = sum(state_days))
+
+#creates a dataset of total time (in days) a study spends in an external review state
+external_time <- states_time %>% 
+  filter(grepl("xternal", state)) %>% 
+  group_by(e_cris_contract_nbr) %>% 
+  summarise(external_review_time = sum(state_days))
+  
+all_fields <- industry_contracts %>% 
+  left_join(hold_time, by = "e_cris_contract_nbr") %>% 
+  left_join(ohsu_time, by = "e_cris_contract_nbr") %>% 
+  left_join(external_time, by = "e_cris_contract_nbr") %>% 
+  mutate(calculated_hold_time = ifelse(is.na(calculated_hold_time), 0, calculated_hold_time))
+
+```
+
+```{r mod_exclusion_c}
+#exclude studies that have a gap between irb approval date and negotiation start date that is more than 6 months
+create_mod_flag <- all_fields %>% 
+  mutate(submit_upload = interval(irb_approval_dt, negotiation_start_dt)/ddays(1)) %>% 
+  mutate(mod_flag = ifelse(submit_upload>182, 1, 0))
+
+filtered_mods <- create_mod_flag %>% 
+  filter(mod_flag==1)
+
+contracts_summarized <- create_mod_flag %>% 
+  filter(!mod_flag==1) %>% 
+  mutate(TAT = interval(irb_study_submitted_dt, negotiation_complete_dt)/ddays(1)-calculated_hold_time) %>%
+  mutate(TAT = ifelse(TAT< 0,0, TAT)) %>% 
+  left_join(orgs, by = c("award_org_name"="project_organization_name")) %>% 
+  rename(dept = project_owning_department)
+
+#Need to add complete prior to eCRIS and IRB approvals variable - see Darlene dashboard for parameters
+```
+
+```{r (t1_p1)_fy_year_c}
+fy_year <- contracts_summarized %>% 
+ dplyr::select(fy, TAT) %>% 
+  group_by(fy) 
+
+fy_year_j <- f.jelly %>% 
+ dplyr::select(fy, TAT) %>% 
+   group_by(fy) 
+
+#Table for TAT by FY year (preparation)
+table1prep <- rbind(fy_year,fy_year_j)
+table1 <-  table1prep %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+   mutate(`Contract Type`="Contract") 
+
+#Graph for TAT by FY year (preparation)
+graph1 <- table1 %>% 
+ dplyr::select(`Fiscal Year`=fy, `Mean TAT`=mean) %>% 
+  filter(`Fiscal Year`!=2013)
+p1 <-
+  ggplot(data = graph1, aes(
+  x = `Fiscal Year`,
+  y = `Mean TAT`)) +
+  geom_point() +
+  geom_line(size=0.75) +
+  xlab("Fiscal Year") + ylab("Mean TAT (day)") +
+  theme_minimal() +
+  theme(legend.title = element_blank()) +
+  scale_color_manual(values = ohsu) +
+  ggtitle("Mean TAT by Fiscal Year")+
+  theme(plot.title = element_text(hjust = 0.5,color="#5C5C5C"),
+  axis.title.x = element_text(color="#5C5C5C"),
+  axis.title.y = element_text(color="#5C5C5C"),
+  axis.text.x = element_text(color="#363636"),
+  axis.text.y = element_text(color="#363636"))+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))
+
+```
+
+```{r (t2_p2)_fy_quarter_c}
+ fy_quarter <- contracts_summarized %>% 
+  dplyr::select(fy_q, TAT) %>% 
+   group_by(fy_q) 
+
+ fy_quarter_j <- f.jelly %>% 
+ dplyr::select(fy_q, TAT) %>% 
+   group_by(fy_q) 
+
+#Table for TAT by FY quarter (preparation)
+table2prep <- rbind(fy_quarter,fy_quarter_j)
+table2 <- table2prep %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+   mutate(`Contract Type`="Contract") 
+### data before 2016.3 are from Jellyfish
+
+#Graph for TAT by FY quarter (preparation)
+graph2 <- table2 %>% 
+ dplyr::select(`Fiscal Year Quarter`=fy_q, `Mean TAT`=mean) %>% 
+  filter(`Fiscal Year Quarter`!="2013.4" & `Fiscal Year Quarter`!="2014.1" & `Fiscal Year Quarter`!="2014.2")
+p2 <-
+  ggplot(data = graph2, aes(
+  x = `Fiscal Year Quarter`,
+  y = `Mean TAT`,
+  group=1)) +
+  geom_point() +
+  geom_line(size=0.75) +
+  xlab("Fiscal Year") + ylab("Mean TAT (day)") +
+  theme_minimal() +
+  theme(legend.title = element_blank()) +
+  scale_color_manual(values = ohsu) +
+  theme(plot.title = element_text(hjust = 0.5,color="#5C5C5C"),
+  axis.title.x = element_text(color="#5C5C5C"),
+  axis.title.y = element_text(color="#5C5C5C"),
+  axis.text.x = element_text(color="#363636"),
+  axis.text.y = element_text(color="#363636"))+
+  ggtitle("Mean TAT by Fiscal Year Quarter")+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))+
+  ylim(60, 155)+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r (t3)_cy_year_c}
+cy_year <- contracts_summarized %>% 
+ dplyr::select(cy, TAT) %>% 
+  group_by(cy) 
+
+cy_year_j <- c.jelly %>% 
+ dplyr::select(cy, TAT) %>% 
+  group_by(cy) 
+
+#Table for TAT by CY year (preparation)
+table3prep <- rbind(cy_year,cy_year_j)
+table3 <-  table3prep %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+   mutate(`Contract Type`="Contract") 
+```
+
+```{r (t4)_cy_quarter_c}
+cy_quarter <- contracts_summarized %>% 
+ dplyr::select(cy_q, TAT) %>% 
+  group_by(cy_q)
+
+cy_quarter_j <- c.jelly %>% 
+ dplyr::select(cy_q, TAT) %>% 
+  group_by(cy_q) 
+
+#Table for TAT by CY quarter (preparation)
+table4prep <- rbind(cy_quarter,cy_quarter_j)  
+table4 <-  table4prep %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+   mutate(`Contract Type`="Contract") 
+```
+
+```{r (t5_p5)_fy_quarter_analyst_c}
+fy_quarter_analyst <- contracts_summarized %>% 
+ dplyr::select(fy_q, preaward_contact, TAT) %>% 
+  group_by(fy_q, preaward_contact)
+
+#Table for TAT by FY quarter and analyst (preparation)
+table5 <-  fy_quarter_analyst %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+arrange(preaward_contact, fy_q) %>% 
+   mutate(`Contract Type`="Contract") 
+
+#Graph for TAT by FY quarter and analyst (preparation)
+graph5 <- table5 %>% 
+ dplyr::select(`Fiscal Year Quarter`=fy_q, Analyst=preaward_contact, `Mean TAT`=mean)
+p5 <-
+  ggplot(data = graph5, aes(
+  x = `Fiscal Year Quarter`,
+  y = `Mean TAT`,
+  group=Analyst,
+  color=Analyst)) +
+  geom_point() +
+  geom_line(size=0.75) +
+  xlab("Fiscal Year") + ylab("Mean TAT (day)") +
+  theme_minimal() +
+  theme(legend.title = element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5,color="#5C5C5C"),
+  axis.title.x = element_text(color="#5C5C5C"),
+  axis.title.y = element_text(color="#5C5C5C"),
+  axis.text.x = element_text(color="#363636"),
+  axis.text.y = element_text(color="#363636"))+
+  scale_color_manual(values = ohsu) +
+  ggtitle("Mean TAT by Analysts")+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))+
+  theme(axis.text.x = element_text(angle = 0, hjust = 1))+
+  facet_wrap(~Analyst, nrow = 9)
+
+```
+
+```{r filter_to_amendment}
+amendment <- contracts %>% 
+  #filter out non-Amendment***********************************************************
+  filter(contract_type=="Amendment") %>%
+  #filter out those that don't have prospective consent
+  filter(prospective_consent_flag=="Yes") %>% 
+  #filter those that don't have a preaward contact
+  filter(!is.na(preaward_contact)) %>% 
+  #filter out contracts without a negotiation complete date
+  filter(!is.na(negotiation_complete_dt)) %>%
+  #create calendar year, fiscal year, and quarters for each of those categories
+  mutate(cy = year(negotiation_complete_dt)) %>% 
+  mutate(c.quarter = quarter(negotiation_complete_dt)) %>% 
+  mutate(f.quarter = recode(c.quarter, "1"="3", "2"='4', "3"='1', "4"='2', .default = "unknown")) %>% 
+  mutate(fy = ifelse(f.quarter>2,cy, (cy+1))) %>% 
+  mutate(cy_q = paste0(cy,".",c.quarter)) %>% 
+  mutate(fy_q = paste0(fy, ".",f.quarter)) %>% 
+  #data is complete starting in 2016, filter out studies that closed before then and use Jellyfish data
+  filter(cy>2015) %>% 
+  #filter(cy<2018) %>%
+  distinct() %>% 
+  #filter out studies without an irb submit, we need an IRB submit as a start date
+  filter(!is.na(irb_study_submitted_dt))
+```
+
+
+```{r bring_in_funding_source_a}
+
+industry_funded <- funding_source %>% 
+  filter(!is.na(e_cris_contract_nbr)) %>% 
+  filter(funding_source_type=="Industry") %>% 
+  #creates a dataset of industry funded contracts
+  distinct(e_cris_contract_nbr, funding_source_type)
+
+industry_amendment <- amendment %>%
+  left_join(industry_funded, by = "e_cris_contract_nbr") %>% 
+  filter(funding_source_type=="Industry") %>% 
+  filter(pi_initiated_flag=="No")
+```
+
+```{r summarize_states_a}
+#this takes the states data and filters it down to only relevant states and studies
+states_time_amen <- states %>%
+  full_join(industry_amendment, by = 'e_cris_contract_nbr', suffix = c("", "_contracts")) %>%
+  #filter out states data that does not pertain to an industry contract
+  filter(funding_source_type=="Industry") %>% 
+  #remove states that happened after the negotiation complete date
+  filter(state_entry_dt<negotiation_complete_dt) %>% 
+  #remove states that happened before the irb_submit date
+  filter(state_entry_dt>irb_study_submitted_dt) %>% 
+  #create variable of how many days a study was in a particular state
+  mutate(state_days = interval(state_entry_dt, state_exit_dt)/ddays(1)) %>% 
+  #narrow dataset to relevant fields for analysis of states
+ dplyr::select(e_cris_contract_nbr, state = workflow_state_from, state_days)
+
+#!tabyl(states, workflow_state_from )
+
+#creates a dataset of hold time based on contract states
+hold_time_amen <- states_time_amen %>% 
+  filter(grepl("Hold", state)|grepl("hold", state)) %>% 
+    group_by(e_cris_contract_nbr) %>%
+  summarise(calculated_hold_time_amen = sum(state_days))
+
+#creates a dataset of total time (in days) a study spends in an OHSU review state
+ohsu_time_amen <- states_time_amen %>% 
+  filter(grepl("OHSU", state)|grepl("ohsu", state)) %>% 
+    group_by(e_cris_contract_nbr) %>%
+  summarise(ohsu_review_time = sum(state_days))
+
+#creates a dataset of total time (in days) a study spends in an external review state
+external_time_amen <- states_time_amen %>% 
+  filter(grepl("xternal", state)) %>% 
+  group_by(e_cris_contract_nbr) %>% 
+  summarise(external_review_time = sum(state_days))
+  
+all_fields_amen <- industry_amendment %>% 
+  left_join(hold_time_amen, by = "e_cris_contract_nbr") %>% 
+  left_join(ohsu_time_amen, by = "e_cris_contract_nbr") %>% 
+  left_join(external_time_amen, by = "e_cris_contract_nbr") %>% 
+  mutate(calculated_hold_time_amen = ifelse(is.na(calculated_hold_time_amen), 0, calculated_hold_time_amen))
+
+```
+
+```{r mod_exclusion_a}
+create_mod_flag_amen <- all_fields_amen %>% 
+  mutate(submit_upload = interval(irb_approval_dt, negotiation_start_dt)/ddays(1)) %>% 
+  mutate(mod_flag = ifelse(submit_upload>182, 1, 0))
+
+filtered_mods_amen <- create_mod_flag_amen %>% 
+  filter(mod_flag==1)
+
+contracts_summarized_amen <- create_mod_flag_amen %>% 
+  filter(!mod_flag==1) %>% 
+  mutate(TAT = interval(irb_study_submitted_dt, negotiation_complete_dt)/ddays(1)-calculated_hold_time_amen) %>%
+  mutate(TAT = ifelse(TAT< 0,0, TAT)) %>% 
+  left_join(orgs, by = c("award_org_name"="project_organization_name")) %>% 
+  rename(dept = project_owning_department)
+
+```
+
+```{r (t6_p6)_fy_year_a}
+fy_year_amen <- contracts_summarized_amen %>% 
+ dplyr::select(fy, TAT) %>% 
+  group_by(fy) 
+
+#Table for TAT by FY year (preparation)
+table6_a <-  fy_year_amen %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+  mutate(`Contract Type`="Amendment")
+
+#Graph for TAT by FY year (preparation)
+graph6_a <- table6_a %>% 
+   mutate(fy =as.factor(fy)) %>% 
+ dplyr::select(`Fiscal Year`=fy, `Mean TAT`=mean) 
+p6_a <-
+  ggplot(data = graph6_a, aes(
+  x = `Fiscal Year`,
+  y = `Mean TAT`,
+  group=1)) +
+  geom_point() +
+  geom_line(size=0.75) +
+  xlab("Fiscal Year") + ylab("Mean TAT (day)") +
+  theme_minimal() +
+  theme(legend.title = element_blank()) +
+  scale_color_manual(values = ohsu) +
+  ggtitle("Mean TAT by Fiscal Year")+
+  theme(plot.title = element_text(hjust = 0.5,color="#5C5C5C"),
+  axis.title.x = element_text(color="#5C5C5C"),
+  axis.title.y = element_text(color="#5C5C5C"),
+  axis.text.x = element_text(color="#363636"),
+  axis.text.y = element_text(color="#363636"))+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))
+
+```
+
+```{r (t7_p7)_fy_quarter_a}
+fy_quarter_amen <- contracts_summarized_amen %>% 
+  dplyr::select(fy_q, TAT) %>% 
+   group_by(fy_q) 
+
+#Table for TAT by FY quarter (preparation)
+table7_a<-  fy_quarter_amen %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+  mutate(`Contract Type`="Amendment") 
+
+#Graph for TAT by FY quarter (preparation)
+graph7_a <- table7_a %>% 
+ dplyr::select(`Fiscal Year Quarter`=fy_q, `Mean TAT`=mean)
+p7_a <-
+  ggplot(data = graph7_a, aes(
+  x = `Fiscal Year Quarter`,
+  y = `Mean TAT`,
+  group=1)) +
+  geom_point() +
+  geom_line(size=0.75) +
+  xlab("Fiscal Year") + ylab("Mean TAT (day)") +
+  theme_minimal() +
+  theme(legend.title = element_blank()) +
+  scale_color_manual(values = ohsu) +
+  ggtitle("Mean TAT by Fiscal Year Quarter")+
+  theme(plot.title = element_text(hjust = 0.5,color="#5C5C5C"),
+  axis.title.x = element_text(color="#5C5C5C"),
+  axis.title.y = element_text(color="#5C5C5C"),
+  axis.text.x = element_text(color="#363636"),
+  axis.text.y = element_text(color="#363636"))+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))+
+  theme(axis.text.x = element_text(angle = 0, hjust = 1))
+
+```
+
+```{r (t8)_cy_year_a}
+cy_amen <- contracts_summarized_amen %>% 
+ dplyr::select(cy, TAT) %>% 
+  group_by(cy) 
+
+#Table for TAT by CY year (preparation)
+table8prep_amen <- cy_amen
+table8_a <-  table8prep_amen %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+  mutate(`Contract Type`="Amendment") 
+
+```
+
+```{r (t9)_cy_quarter_a}
+cy_quarter_amen <- contracts_summarized_amen %>% 
+ dplyr::select(cy_q, TAT) %>% 
+  group_by(cy_q)
+
+#Table for TAT by CY quarter (preparation)
+table9prep_amen <- cy_quarter_amen
+table9_a <-  table9prep_amen %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+  mutate(`Contract Type`="Amendment")
+
+```
+
+```{r (t10_p10)_fy_quarter_analyst_c}
+fy_quarter_analyst_amen <- contracts_summarized_amen %>% 
+ dplyr::select(fy_q, preaward_contact, TAT) %>% 
+  group_by(fy_q, preaward_contact)
+
+table10_a <-  fy_quarter_analyst_amen %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),1), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+    arrange(preaward_contact, fy_q) %>% 
+   mutate(`Contract Type`="Contract") 
+
+graph10_a <- table10_a %>% 
+ dplyr::select(`Fiscal Year Quarter`=fy_q, Analyst=preaward_contact, `Mean TAT`=mean) 
+p10_a <-
+  ggplot(data = graph10_a, aes(
+  x = `Fiscal Year Quarter`,
+  y = `Mean TAT`,
+  group=Analyst,
+  color=Analyst)) +
+  geom_point() +
+  geom_line(size=0.75)+
+  xlab("Fiscal Year") + ylab("Mean TAT (day)") +
+  theme_minimal() +
+  theme(legend.title = element_blank()) +
+  scale_color_manual(values = ohsu) +
+  ggtitle("Mean TAT by Analysts")+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))+
+  theme(plot.title = element_text(hjust = 0.5,color="#5C5C5C"),
+  axis.title.x = element_text(color="#5C5C5C"),
+  axis.title.y = element_text(color="#5C5C5C"),
+  axis.text.x = element_text(color="#363636"),
+  axis.text.y = element_text(color="#363636"))+
+  theme(axis.text.x = element_text(angle = 0, hjust = 1))+
+  scale_color_manual(values = ohsu)+
+    facet_wrap(~Analyst, nrow = 9)
+
+```
+
+```{r (t11)_fy_department}
+fy_dept <- contracts_summarized %>% 
+ dplyr::select(fy, TAT, dept) %>% 
+  group_by(fy,dept) %>% 
+summarise_all(.,funs(n = n(), mean = round(mean(., na.rm=TRUE),0), median = round(median(., na.rm=TRUE),1), min = round(min(., na.rm=TRUE),1), max = round(max(., na.rm=TRUE),1), iqr = round(IQR(., na.rm=TRUE),1))) %>% 
+   mutate(`Contract Type`="Contract") %>% 
+  mutate(dept=ifelse(is.na(dept),"Unspecified",dept))%>% 
+  ungroup() %>% 
+  dplyr::select(fy,dept,n,mean) %>% 
+  gather(n,number,3:4) %>% 
+  group_by(dept,n) %>% 
+  mutate(fy=paste0("FY",fy)) %>% 
+  spread(fy,number) %>% 
+  rename(Department=dept) %>% 
+  ungroup() %>% 
+  mutate(n=ifelse(n=="n","Count","Mean TAT")) %>% 
+  rename("Unit"=n) %>% 
+  mutate(FY2016=ifelse(is.na(FY2016),0,FY2016)) %>% 
+  mutate(FY2017=ifelse(is.na(FY2017),0,FY2017)) %>% 
+  mutate(FY2018=ifelse(is.na(FY2018),0,FY2018)) 
+
+fy_dept.16 <- fy_dept %>% 
+  select(Department,Unit,FY2016) %>% 
+  spread(Unit,FY2016) %>% 
+  rename("Study Count."=Count) %>% 
+  rename("Mean TAT."='Mean TAT')
+
+fy_dept.17 <-fy_dept %>% 
+  select(Department,Unit,FY2017) %>% 
+  spread(Unit,FY2017) %>% 
+  rename("Study Count'"=Count) %>% 
+  rename("Mean TAT'"='Mean TAT')
+
+fy_dept.18 <-fy_dept %>% 
+  select(Department,Unit,FY2018) %>% 
+  spread(Unit,FY2018) %>% 
+  rename("Study Count"=Count) %>% 
+  rename("Mean TAT"='Mean TAT')
+
+table11 <- fy_dept.16 %>% 
+  left_join(fy_dept.17,by=c("Department"="Department")) %>% 
+  left_join(fy_dept.18,by=c("Department"="Department")) 
+```
+
+
+
+
+Sidebar {.sidebar}
+=====================================
+
+### Data Sources
+
+#### Data prior to calendar year 2015 was from Jellyfish; data after calendar year 2014 was pulled from Cognos
+
+### Cognos data pull date: 
+####March 29th, 2018
+
+### Notes:
+
+####To be included in this report, studies have to meet the following criteria:
+####• Is industry sponsored 
+####• Has a prospective consent
+####• Has a preaward contact
+####• Has a IRB study submission date
+####• Has a negotiation complete date
+
+####Turnaround Time (TAT) is the time between IRB study submission date and negotiation complete date.
+
+Contract Graphs  {data-navmenu="Contract"}
+=====================================  
+Column {data-width=400}
+-------------------------------------------------------------------
+
+```{r p1, fig.width=6.5, fig.height=3}
+p1
+```
+
+```{r p2, fig.width=6.5, fig.height=3}
+p2
+```
+
+```{r p5, fig.width=6.5, fig.height=15}
+p5
+```
+
+Amendment Graphs {data-navmenu="Amendment"}
+===================================== 
+Column {data-width=400}
+-------------------------------------------------------------------
+```{r p6_a, fig.width=6.5, fig.height=3}
+p6_a
+```
+
+```{r p7_a, fig.width=6.5, fig.height=3}
+p7_a
+```
+
+```{r p10_a, fig.width=6.5, fig.height=15}
+p10_a
+```
+
+Contract Tables {data-navmenu="Contract"}
+=====================================  
+
+-------------------------------------------------------------------
+###TAT by Fiscal Year
+```{r table1}
+kable(table1, format = "html", caption = "Summary of TAT (by fy year)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+
+```{r table2}
+kable(table2, format = "html", caption = "Summary of TAT (by fy quarter)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+###TAT by Calendar Year
+```{r table3}
+kable(table3, format = "html", caption = "Summary of TAT (by cy year)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+
+```{r table4}
+kable(table4, format = "html", caption = "Summary of TAT (by cy quarter)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+### TAT by Analysts
+```{r table5}
+kable(table5, format = "html", caption = "Summary of TAT by Analysts (by fy quarter)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+
+Amendment Tables {data-navmenu="Amendment"}
+===================================== 
+
+-------------------------------------------------------------------
+###TAT by Fiscal Year
+```{r table6_a}
+kable(table6_a, format = "html", caption = "Summary of TAT (by fy year)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+
+```{r table7_a}
+kable(table7_a, format = "html", caption = "Summary of TAT (by fy quarter)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+###TAT by Calendar Year
+```{r table8_a}
+kable(table8_a, format = "html", caption = "Summary of TAT (by cy year)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+
+```{r table9_a}
+kable(table9_a, format = "html", caption = "Summary of TAT (by cy quarter)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+### TAT by Analysts
+```{r table10_a}
+kable(table10_a, format = "html", caption = "Summary of TAT by Analysts (by fy quarter)") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F) 
+```
+Contract Tables {data-navmenu="By Department"}
+===================================== 
+
+-------------------------------------------------------------------
+###TAT by department
+
+```{r table11}
+ kable(table11, format = "html") %>%
+   add_header_above(c(" ", "FY2016" = 2, "FY2017" = 2,"FY2018" = 2)) %>%
+   kable_styling(bootstrap_options = "striped", position = "left",
+                 full_width = F) 
+```
+
+

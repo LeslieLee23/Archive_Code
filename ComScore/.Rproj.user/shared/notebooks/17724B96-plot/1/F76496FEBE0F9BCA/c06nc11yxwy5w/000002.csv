@@ -1,0 +1,10 @@
+"0","all_raw <- read_csv(all_csv) %>% clean_names()"
+"2","Missing column names filled in: 'X1' [1]"
+"2","Parsed with column specification:
+cols(
+  X1 = col_integer(),
+  num = col_double(),
+  time = col_time(format = """"),
+  label = col_time(format = """")
+)
+"

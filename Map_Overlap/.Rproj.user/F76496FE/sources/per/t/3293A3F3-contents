@@ -1,0 +1,383 @@
+---
+title: "AM Map"
+output: html_document
+---
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+options(knitr.table.format = "html") 
+```
+
+```{r load_pkgs}
+
+#list packages needed
+library(install.load)
+install_load("shiny", "shinythemes", "readr", "readxl", "haven", "dplyr", "tidyr", "stringr", "maps", "ggplot2", "mapdata", "ggmap", "pixiedust", "pander", "stringi", "data.table", "viridis", "janitor", "gridExtra","grid", "ggpubr","ggrepel") 
+
+```
+
+```{r import_data}
+
+usa <- map_data("usa")
+states <- map_data("state")
+am_map <- read_csv("raw_data/am_map.csv")%>% clean_names()
+```
+
+```{r ohsu_colors, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+ #sets up OHSU color theme
+ 
+ timezone <-
+   c("#CF000F",
+   "#367be2",
+   "#5728af",
+   "#27994b")
+  
+```
+
+
+```{r}
+
+p1 <- 
+  ggplot(data = states, mapping = aes(x = long, y = lat, group=group)) + 
+  coord_fixed(1.4) + 
+  geom_polygon(color = "grey50", fill = "white") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.border = element_blank(),
+  legend.position = "none"
+  ) +
+  ggtitle("Distribution of Audigy Member") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  geom_point(data=am_map, aes(x = longitude, y = latitude, size = units, color = team), inherit.aes = F)+
+  geom_label_repel(data = am_map, aes(x = longitude, y = latitude, label = member_id, size=7), 
+                 fill = "white", box.padding = unit(.9, "lines"),
+                 label.padding = unit(.12, "lines"),
+                 segment.color = "red", segment.size = 0.5,
+                 inherit.aes = F)+
+  scale_color_manual(values = timezone)
+
+p1
+
+ggsave("ggplots/red_blue_crm.pdf")
+
+```
+
+```{r}
+
+red_blue_practice <- 
+  ggplot(data = states, mapping = aes(x = long, y = lat, group=group)) + 
+  coord_fixed(1.4) + 
+  geom_polygon(color = "grey50", fill = "white") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.border = element_blank(),
+  legend.position = "none"
+  ) +
+  ggtitle("Distribution of Audigy Member") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  geom_point(data=am_map, aes(x = longitude, y = latitude, size = units, color = team), inherit.aes = F)+
+  geom_label_repel(data = am_map, aes(x = longitude, y = latitude, label = practice_name, size=4.5), 
+                 fill = "white", box.padding = unit(.8, "lines"),
+                 label.padding = unit(.1, "lines"),
+                 segment.color = "red", segment.size = 0.3,
+                 inherit.aes = F)+
+  scale_color_manual(values = timezone)
+
+red_blue_practice
+
+ggsave("ggplots/red_blue_practice.pdf")
+
+```
+```{r}
+blue_map <- am_map%>%
+  filter(team== "Blue")
+
+blue_color <-
+   c(
+   "#367be2")
+
+blue2 <- 
+  ggplot(data = states, mapping = aes(x = long, y = lat, group=group)) + 
+  coord_fixed(1.4) + 
+  geom_polygon(color = "grey50", fill = "white") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.border = element_blank(),
+  legend.position = "none"
+  ) +
+  ggtitle("Audigy Medical Blue Team") +
+  theme(plot.title = element_text(hjust = 0.5, size = 7))+ 
+  geom_point(data=blue_map, aes(x = longitude, y = latitude, size = units, color = team), inherit.aes = F)+
+  
+  geom_label_repel(
+    data = blue_map,
+    aes(
+    x = longitude,
+    y = latitude,
+    label = name_id,
+    size = 2.8
+    ),
+    fill = "white",
+    box.padding = unit(.2, "lines"),
+    label.padding = unit(.06, "lines"),
+    segment.color = "red",
+    segment.size = 0.25,
+    inherit.aes = F
+    )+
+  
+  scale_color_manual(values = blue_color)
+
+blue2
+ggsave("ggplots/blue_practice2.pdf")
+
+
+```
+
+```{r}
+blue_map <- am_map%>%
+  filter(team== "Blue")
+
+blue_color <-
+   c(
+   "#367be2")
+
+blue <- 
+  ggplot(data = states, mapping = aes(x = long, y = lat, group=group)) + 
+  coord_fixed(1.4) + 
+  geom_polygon(color = "grey50", fill = "white") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.border = element_blank(),
+  legend.position = "none"
+  ) +
+  ggtitle("Audigy Medical Blue Team") +
+  theme(plot.title = element_text(hjust = 0.5, size = 7))+ 
+  geom_point(data=blue_map, aes(x = longitude, y = latitude, size = units, color = team), inherit.aes = F)+
+  
+  geom_label_repel(
+    data = subset(blue_map,divide > 87 & latitude >33 ),
+    aes(
+    x = longitude,
+    y = latitude,
+    label = name_id,
+    size = 2.28
+    ),
+    nudge_x = -120,
+    direction = "y",
+    fill = "white",
+    box.padding = unit(.4, "lines"),
+    label.padding = unit(.09, "lines"),
+    segment.color = "red",
+    segment.size = 0.3,
+    inherit.aes = F
+    )+
+  geom_label_repel(
+    data = subset(blue_map,divide < 87),
+    aes(
+    x = longitude,
+    y = latitude,
+    label = name_id,
+    size = 2.28
+    ),
+    nudge_x = 60,
+    direction = "y",
+    hjust = 1,
+    fill = "white",
+    box.padding = unit(.4, "lines"),
+    label.padding = unit(.09, "lines"),
+    segment.color = "red",
+    segment.size = 0.3,
+    inherit.aes = F
+    )+
+  
+  geom_label_repel(
+    data = subset(blue_map,latitude <33 & divide > 87),
+    aes(
+    x = longitude,
+    y = latitude,
+    label = name_id,
+    size = 2.28
+    ),
+    nudge_y = -50,
+    direction = "x",
+    angle        = 30,
+    fill = "white",
+    box.padding = unit(.4, "lines"),
+    label.padding = unit(.09, "lines"),
+    segment.color = "red",
+    segment.size = 0.3,
+    inherit.aes = F
+    )+
+  
+  
+  scale_color_manual(values = blue_color)
+
+blue
+ggsave("ggplots/blue_practice.pdf")
+
+
+```
+
+```{r}
+red_map <- am_map%>%
+  filter(team== "Red")
+
+Red_color <-
+   c(
+   "#C91F37")
+
+red <- 
+  ggplot(data = states, mapping = aes(x = long, y = lat, group=group)) + 
+  coord_fixed(1.4) + 
+  geom_polygon(color = "grey50", fill = "white") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.border = element_blank(),
+  legend.position = "none"
+  ) +
+  ggtitle("Audigy Medical Red Team") +
+  theme(plot.title = element_text(hjust = 0.5, size = 8))+
+  theme(plot.title = element_text(hjust = 0.5))+
+  geom_point(data=red_map, aes(x = longitude, y = latitude, size = units, color = team), inherit.aes = F)+
+   geom_label_repel(
+    data = subset(red_map,divide > 87 & latitude >33 ),
+    aes(
+    x = longitude,
+    y = latitude,
+    label = name_id,
+    size = 2.6
+    ),
+    nudge_x = -120,
+    direction = "y",
+    fill = "white",
+    box.padding = unit(.5, "lines"),
+    label.padding = unit(.09, "lines"),
+    segment.color = "#367be2",
+    segment.size = 0.3,
+    inherit.aes = F
+    )+
+  geom_label_repel(
+    data = subset(red_map,divide < 87 & latitude > 33),
+    aes(
+    x = longitude,
+    y = latitude,
+    label = name_id,
+    size = 2.6
+    ),
+    nudge_x = 60,
+    direction = "y",
+    hjust = 1,
+    fill = "white",
+    box.padding = unit(.5, "lines"),
+    label.padding = unit(.09, "lines"),
+    segment.color = "#367be2",
+    segment.size = 0.3,
+    inherit.aes = F
+    )+
+  
+  geom_label_repel(
+    data = subset(red_map,latitude <33 ),
+    aes(
+    x = longitude,
+    y = latitude,
+    label = name_id,
+    size = 2.6
+    ),
+    nudge_y = -50,
+    direction = "x",
+    angle        = 30,
+    fill = "white",
+    box.padding = unit(.5, "lines"),
+    label.padding = unit(.09, "lines"),
+    segment.color = "#367be2",
+    segment.size = 0.3,
+    inherit.aes = F
+    )+
+  scale_color_manual(values = Red_color)
+
+red
+ggsave("ggplots/red_practice.pdf")
+
+
+```
+
+
+
+
+
+```{r}
+p2 <- 
+  ggplot(data = states, mapping = aes(x = long, y = lat, group=group)) + 
+  coord_fixed(1.4) + 
+  geom_polygon(color = "grey50", fill = "white") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.border = element_blank(),
+  legend.position = "none"
+  ) +
+  ggtitle("Distribution of Red Team Member") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  geom_point(data=address, aes(x = long, y = latitude, size = average_unit), inherit.aes = F)+
+  geom_label_repel(data = address, aes(x = long, y = latitude, label = practice, size=7.5, color=time_zone), 
+                 fill = "white", box.padding = unit(1, "lines"),
+                 label.padding = unit(.15, "lines"),
+                 segment.color = "red", segment.size = 0.5,
+                 inherit.aes = F)+
+  scale_color_manual(values = timezone)
+
+p2
+
+ggsave("ggplots/Red Map2.pdf")
+```

@@ -1,0 +1,6 @@
+"0","  use2[is.na(use2)] <- """" %>% 
+    select(npi,name_suffix,name,address,phone)
+"
+"2","Error in UseMethod(""select_"") : 
+  no applicable method for 'select_' applied to an object of class ""character""
+"

@@ -1,0 +1,242 @@
+---
+title: "Eric"
+author: "Leslie"
+date: "September 20, 2018"
+output: html_document
+---
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","gtable","zipcode","maps", "viridis", "ggthemes","blscrapeR","ggmap","maps") 
+
+```
+
+```{r data_locations}
+address_csv <- 'raw_data/addresses.csv'
+zip_csv <- 'raw_data/zip.csv'
+p_lo_csv <- 'raw_data/p_lo.csv'
+
+ryb <-
+   c("#FF0000",
+   "#FFFF00",
+   "#0000FF"
+   )
+BA_red<-"#FF0000"
+HDG_yellow<-"#FFFF00"
+FSQ_blue<-"#0000FF"
+
+
+```
+
+```{r read_in}
+address <- read_csv(address_csv) %>% clean_names()
+p_lo <- read_csv(p_lo_csv) %>% clean_names()
+zip <- read_csv(zip_csv) %>% clean_names() %>% 
+mutate(hdg=hd_g) %>% 
+mutate(zip=as.numeric(row_labels)) %>% 
+  select(zip,ba,fsq,hdg,total=grand_total)
+
+data(zipcode)
+
+zipcode <- zipcode %>% 
+  mutate(zip=as.numeric(zip))
+
+ma_pa <- zipcode 
+
+
+```
+
+
+```{r}
+
+e_all <- zip %>% 
+  left_join(ma_pa,by = "zip") %>% 
+  filter(state=="MD"|state=="PA")
+
+
+e_all2 <- zip %>% 
+  full_join(ma_pa,by = "zip") %>% 
+  filter(state=="MD"|state=="PA") %>%  
+  mutate(yes=ifelse(is.na(total),"no","yes")) %>% 
+  mutate(total=ifelse(yes=="no",10,total))
+
+```
+
+
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+  
+p5<- ggmap(get_map(location = eric_p), source = "osm")+
+  geom_point(data=e_fsq, aes(x = longitude, y = latitude, size=fsq,   color=FSQ_blue,alpha=1), inherit.aes = F)+
+  geom_point(data=e_ba, aes(x = longitude, y = latitude, size=ba,   color=BA_red,alpha=1), inherit.aes = F)+
+  geom_point(data=e_hdg, aes(x = longitude, y = latitude, size=hdg,   color=HDG_yellow,alpha=1), inherit.aes = F)+
+    geom_point(data=p_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3,color=ryb)+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+p5
+ggsave("ggplots/all_color_coded.pdf")
+```
+
+
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+
+e_fsq <- zip %>% 
+  full_join(ma_pa,by = "zip") %>% 
+  filter(state=="MD"|state=="PA") %>%  
+  mutate(yes=ifelse(is.na(fsq),"no","yes")) %>% 
+  mutate(fsq=ifelse(yes=="no",10,fsq))
+
+fsq<-p_lo %>% 
+  filter(practice=="Franklin Square")
+  
+p4<- ggmap(get_map(location = eric_p), source = "osm")+
+  geom_point(data=e_fsq, aes(x = longitude, y = latitude, size=fsq,  alpha = .5, color=yes), inherit.aes = F)+
+    geom_point(data=p_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3)+
+    geom_point(data=fsq, aes(x = a, y = b), inherit.aes = F,shape=18,size=3,color="#cc0000")+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+p4
+ggsave("ggplots/fsq_only.pdf")
+```
+
+
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+
+e_hdg <- zip %>% 
+  full_join(ma_pa,by = "zip") %>% 
+  filter(state=="MD"|state=="PA") %>%  
+  mutate(yes=ifelse(is.na(hdg),"no","yes")) %>% 
+  mutate(hdg=ifelse(yes=="no",10,hdg))
+
+hdg<-p_lo %>% 
+  filter(practice=="Havre de Grace")
+  
+p4<- ggmap(get_map(location = eric_p), source = "osm")+
+  geom_point(data=e_hdg, aes(x = longitude, y = latitude, size=hdg,  alpha = .5, color=yes), inherit.aes = F)+
+    geom_point(data=p_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3)+
+    geom_point(data=hdg, aes(x = a, y = b), inherit.aes = F,shape=18,size=3,color="#cc0000")+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+p4
+ggsave("ggplots/hdg_only.pdf")
+```
+
+
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+
+e_ba <- zip %>% 
+  full_join(ma_pa,by = "zip") %>% 
+  filter(state=="MD"|state=="PA") %>%  
+  mutate(yes=ifelse(is.na(ba),"no","yes")) %>% 
+  mutate(ba=ifelse(yes=="no",10,ba))
+
+ba<-p_lo %>% 
+  filter(practice=="Bel Air")
+  
+p3<- ggmap(get_map(location = eric_p), source = "osm")+
+  geom_point(data=e_ba, aes(x = longitude, y = latitude, size=ba,  alpha = .5, color=yes), inherit.aes = F)+
+    geom_point(data=p_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3)+
+    geom_point(data=ba, aes(x = a, y = b), inherit.aes = F,shape=18,size=3,color="#cc0000")+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+p3
+ggsave("ggplots/ba_only.pdf")
+```
+
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+
+
+p2<- ggmap(get_map(location = "Havre de Grace"), source = "osm")+
+  geom_point(data=e_all2, aes(x = longitude, y = latitude, size=total,  alpha = .5, color=yes), inherit.aes = F)+
+    geom_point(data=p_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3)+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+p2
+ggsave("ggplots/four.pdf")
+```
+
+
+```{r}
+eric_p <- c(lon = -76.345440, lat = 39.519410)
+
+
+p1<- ggmap(get_map(location = eric_p), source = "osm")+
+  geom_point(data=e_all, aes(x = longitude, y = latitude, size=total,  alpha = .3), inherit.aes = F)+
+    geom_point(data=p_lo, aes(x = a, y = b), inherit.aes = F,shape=18,size=3,color="#cc0000")+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+p1
+ggsave("ggplots/one.pdf")
+```
+

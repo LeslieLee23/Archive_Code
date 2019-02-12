@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1542322729557.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "F454768F",
+    "lastKnownWriteTime" : 8316288568668609568,
+    "last_content_update" : 1542322729557,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "C9CF75CE",
+        "caption" : "patients_raw",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=patients_raw&cache_key=C9CF75CE",
+        "displayedObservations" : 395,
+        "environment" : "",
+        "object" : "patients_raw",
+        "preview" : 0,
+        "totalObservations" : 395,
+        "variables" : 2
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

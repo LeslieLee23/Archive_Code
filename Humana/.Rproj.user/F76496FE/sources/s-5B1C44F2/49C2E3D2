@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1536011989370.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1615772914",
+    "id" : "49C2E3D2",
+    "lastKnownWriteTime" : 1536188805,
+    "last_content_update" : 1536188805503,
+    "path" : "C:/Users/LLee/Desktop/R files/Connon/Connon.Rmd",
+    "project_path" : "Connon.Rmd",
+    "properties" : {
+        "cursorPosition" : "85,2",
+        "docOutlineVisible" : "0",
+        "last_setup_crc32" : "23AD2F8Bbb338d19",
+        "scrollLine" : "40",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

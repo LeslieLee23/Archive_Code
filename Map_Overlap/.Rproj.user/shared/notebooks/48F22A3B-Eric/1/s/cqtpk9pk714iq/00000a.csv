@@ -1,0 +1,36 @@
+"0","address <- read_csv(address_csv) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  Address = col_character(),
+  Street = col_character(),
+  City = col_character(),
+  State = col_character(),
+  Zip = col_integer(),
+  Office = col_character()
+)
+"
+"0","p_lo <- read_csv(p_lo_csv) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  practice = col_character(),
+  a = col_double(),
+  b = col_double()
+)
+"
+"0","zip <- read_csv(zip_csv) %>% clean_names() %>% "
+"0","mutate(hdg=hd_g) %>% "
+"0","mutate(zip=as.numeric(row_labels)) %>% "
+"0","  select(zip,ba,fsq,hdg,total=grand_total)"
+"2","Parsed with column specification:
+cols(
+  `Row Labels` = col_integer(),
+  BA = col_integer(),
+  FSQ = col_integer(),
+  HdG = col_integer(),
+  `Grand Total` = col_integer()
+)
+"
+"0","data(zipcode)"
+"0","zipcode <- zipcode %>% "
+"0","  mutate(zip=as.numeric(zip))"
+"0","ma_pa <- zipcode "

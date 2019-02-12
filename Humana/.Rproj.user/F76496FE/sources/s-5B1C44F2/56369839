@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1536184422118.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3401652466",
+    "id" : "56369839",
+    "lastKnownWriteTime" : 1522695473,
+    "last_content_update" : 1522695473,
+    "path" : "C:/Users/LLee/Desktop/R files/CTO/TAT Metrics Dashboard.Rmd",
+    "project_path" : null,
+    "properties" : {
+        "chunk_output_type" : "console",
+        "cursorPosition" : "71,46",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 8,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

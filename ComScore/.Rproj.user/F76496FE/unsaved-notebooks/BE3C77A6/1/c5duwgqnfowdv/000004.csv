@@ -1,0 +1,17 @@
+"0","all_raw <- read_csv(all_csv) %>% clean_names() %>% "
+"0","  mutate(single_hh = paste(headend_no, household_no, sep=""^"")) %>% "
+"0","  mutate(check=duplicated(single_hh))"
+"2","Parsed with column specification:
+cols(
+  headend_no = col_integer(),
+  household_no = col_integer(),
+  a = col_integer(),
+  b = col_integer(),
+  c = col_integer(),
+  d = col_integer(),
+  e = col_integer(),
+  denominator = col_integer()
+)
+"
+"0","Cons <-all_raw %>% "
+"0","  select(single_hh,a,b,c,d,e,denominator)"

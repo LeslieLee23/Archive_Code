@@ -1,0 +1,24 @@
+"0","all_contacts <- read_csv(all_raw) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  .default = col_character(),
+  Zip = col_integer(),
+  PhoneAreaCode = col_integer(),
+  PhoneNumber = col_integer(),
+  PhoneExtension = col_integer(),
+  FaxAreaCode = col_integer(),
+  FaxNumber = col_integer(),
+  MobileAreaCode = col_integer(),
+  MobileNumber = col_integer(),
+  OtherPhoneAreaCode = col_integer(),
+  OtherPhoneNumber = col_integer(),
+  IsRemoved = col_integer(),
+  NPI = col_integer()
+)
+"
+"2","See spec(...) for full column specifications.
+"
+"2","number of columns of result is not a multiple of vector length (arg 2)"
+"2","1 parsing failure.
+row [38;5;246m# A tibble: 1 x 5[39m col     row col         expected               actual file                     expected   [3m[38;5;246m<int>[39m[23m [3m[38;5;246m<chr>[39m[23m       [3m[38;5;246m<chr>[39m[23m                  [3m[38;5;246m<chr>[39m[23m  [3m[38;5;246m<chr>[39m[23m                    actual [38;5;250m1[39m  [4m2[24m390 PhoneNumber no trailing characters +      'raw_data/all_contacts.~ file [38;5;246m# A tibble: 1 x 5[39m
+"

@@ -1,0 +1,972 @@
+---
+title: "OCTRI-Supported RDW Services & Cohort Discovery Usage Statistics"
+author: "OCTRI Office of Research Impact"
+date: "1/30/2018"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+options(knitr.table.format = "html") 
+```
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+#list packages needed
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2", "cowplot") 
+
+```
+
+```{r data_locations}
+
+all_csv <- 'raw_data/All_Service_no_filter.csv'
+oga_csv <- "raw_data/OGA Funding2.csv"
+Demographic_xlsx <- "raw_data/2017-312 HRR - Employee Demographics (ALL).xlsx"
+OGA_Dep_xlsx <- "raw_data/Departments and Orgs from OGA.xlsx"
+depts_csv <- "raw_data/depts 9.20.17.csv"
+cohort_csv <- "raw_data/cohort_discovery.csv"
+cohort_user_csv <- "raw_data/cohort_use.csv"
+```
+
+```{r read_in}
+all_raw <- read_csv(all_csv) %>% clean_names()
+oga_raw <- read_csv(oga_csv) %>% clean_names()
+Demo <- read_xlsx(Demographic_xlsx) %>% clean_names()
+OGA_Dep <- read_xlsx(OGA_Dep_xlsx) %>% clean_names()
+depts <- read_csv(depts_csv) %>% clean_names()
+cohort <- read_csv(cohort_csv) %>% clean_names()
+cohort_user <- read_csv(cohort_user_csv) %>% clean_names()
+```
+
+```{r ohsu_colors, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+
+ohsu <- c("#FFC939", "#5E97C9", "#585E60", "#57B147", "#002776", "#ED6D23", "#ED1941","#0E4D8F","#8B2252", "#BF3EFF", "#00EEEE")
+```
+
+```{r RDW_basic_filter, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+# Basic filter
+basic <-
+  filter(
+  all_raw,
+  exclude_from_nih_reporting == 0 &
+  service_state_service_state_name != "Withdrawn" &
+  service_state_service_state_name != "Initial inquiry" &
+  service_state_service_state_name != "Disapproved" &
+  service_state_service_state_name != "In Review" &
+  service_state_service_state_name != "Initial Inquiry" &
+  service_state_service_state_name != "Pending-Funding")
+                
+# filter to RDW services based on service category Rob gave
+RDW_only <-
+  filter(basic,
+  program_program_abbreviation == "BMIP-CRI" &
+  service_category == "Research Data Warehouse" &
+  (service_service_name == "Cohort Discovery Count" |
+  service_service_name == "Cohort Discovery Dataset (De-identified or Fully Identified)" |
+  service_service_name == "MyChart Feasibility Check" |
+  service_service_name == "MyChart Recruitment Dataset" |
+  service_service_name == "RDW- Count" |
+  service_service_name == "RDW- Deidentified" |
+  service_service_name == "RDW- Fully Identified" |
+  service_service_name == "View / Web Service (RDW data feed into database)")) 
+
+# filter out services that stopped before FY2013
+Post_2012_prep <- RDW_only %>%
+  mutate(stop_date2 = as_date(mdy(stop_date))) %>%
+  mutate(end_before_2013_flag = ifelse(stop_date2 < ymd("2012-07-01"),
+  "Remove",
+  "Keep")) %>%
+  
+  filter(end_before_2013_flag != "Remove" |
+  is.na(end_before_2013_flag))
+  
+  Post_2012 <- Post_2012_prep[c(1:17)]
+
+# Add in additional RDW services based on service ID Justin sent. Those addtional RDW service did not fall into categories above for some recording reason. 
+RDW_add <-
+  filter(
+  all_raw,
+  service_id == "SVC-13681" |
+  service_id == "SVC-13680" |
+  service_id == "SVC-14438" |
+  service_id == "SVC-15009" |
+  service_id == "SVC-13146" | 
+  service_id == "SVC-12215" |
+  service_id == "SVC-12224" |
+  service_id == "SVC-15948" |
+  service_id == "SVC-16885" |
+  service_id == "SVC-13069" |
+  service_id == "SVC-16886" )
+
+By_Services <- rbind(Post_2012, RDW_add) %>% 
+unique()
+# 4 were dropped becuase of repitition
+```
+
+```{r Unique_project, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+
+By_Project <- select(By_Services, project_id,project_short_title,project_pi_full_name, project_pi_employee_id) %>%
+unique()
+```
+
+```{r date_clean_up, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+RDW_Date <- By_Services %>%
+
+# Change start and stop date to fiscal year  
+  mutate(start_date2 = as_date(mdy(start_date))) %>%
+  mutate(year = ifelse(
+# There are cases where the service started before FY2013, but due to our time window (FY2013-2017), we just consider all those cases as start at FY2013.
+  start_date2 < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  start_date2 < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  start_date2 < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  start_date2 < ymd("2016-07-01"),
+  "2016",
+  ifelse(start_date2 < ymd("2017-07-01"), "2017", "2018")))))) %>% 
+ 
+  mutate(stop_date2 = as_date(mdy(stop_date))) %>%
+  mutate(year_stop = ifelse(
+  stop_date2 < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  stop_date2 < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  stop_date2 < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  stop_date2 < ymd("2016-07-01"),
+  "2016",
+  ifelse(stop_date2 < ymd("2017-07-01"), "2017", "2018")))))) %>% 
+
+# calculate the lenth of each service. Based on Rob's request, if one service lasted for 3 years,  it will be counted 3 times in the service count. Since we are only looking at the time window FY2013-2017, services that last pass FY2017 will be assinged with 2017 as their stop date.  
+  
+  mutate(year.n = as.numeric(year)) %>%
+  mutate(year_stop.p = as.numeric(year_stop)) %>%
+  mutate(year_stop.n = ifelse(
+    is.na(year_stop.p),2017,
+    ifelse(year_stop.p>2017, 2017,
+    year_stop.p )))%>% 
+  mutate(num.year = year_stop.n - year.n + 1) 
+```
+# Service Level Data
+### From FY 2013 to 2017, there were 356 unique OCTRI supported RDW services; there were 484 active OCTRI supported RDW services. Unique services are counted once, during the fiscal year they are initiated. Active services are counted in each year that they are active. If an unique service lasts for more than a year, for example, it was active from FY2014 to 2016, this service will be counted as 3 active services.
+```{r graph_service_unique,echo=FALSE, fig.width=9,fig.height=5, message=FALSE, warning=FALSE}
+RDW_unique_year <- RDW_Date %>%
+  filter(year != 2018) %>% 
+  count(year,service_service_name) 
+     
+pa<- ggplot(data = RDW_unique_year, aes(x = year, y = n, group=service_service_name, color=service_service_name))+
+  geom_point()+
+  geom_line()+
+    xlab("Year") + ylab("Number of unique services")+
+   ggtitle("Unique OCTRI Supported RDW Services (detailed)")+
+theme_minimal() +
+  coord_fixed(ratio = 0.1)+
+    theme(legend.title=element_blank()) +
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))+
+   labs(caption = "Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd")+
+  scale_color_manual(values = ohsu)
+pa
+
+```
+
+
+```{r graph_service_number_by_year,fig.width=9,fig.height=5,echo=FALSE, message=FALSE, warning=FALSE}
+
+RDW_year_count <- RDW_Date %>%
+  filter(year != 2018) %>%
+  select(year.n, year_stop.n, service_service_name) %>%
+  mutate(FY2013 = ifelse(year.n <= 2013 & year_stop.n >= 2013,
+  1, 0)) %>% 
+  mutate(FY2014 = ifelse(year.n <= 2014 & year_stop.n >= 2014,
+  1, 0)) %>%   
+   mutate(FY2015 = ifelse(year.n <= 2015 & year_stop.n >= 2015,
+  1, 0)) %>%  
+   mutate(FY2016 = ifelse(year.n <= 2016 & year_stop.n >= 2016,
+  1, 0)) %>%  
+  mutate(FY2017 = ifelse(year.n <= 2017 & year_stop.n >= 2017,
+  1, 0)) 
+  
+# plot detailed multiple year service data     
+RDW_tidy <- RDW_year_count[c(3:8)] %>% 
+  gather(year,n,2:6) %>%
+  group_by(year,service_service_name) %>% 
+  summarise(number=sum(n))
+
+p1a <-
+  ggplot(data = RDW_tidy,
+  aes(x = year, y = number, group = service_service_name,  
+  color = service_service_name)) +
+  geom_point() +
+  geom_line() +
+  xlab("Year") + ylab("Number of services provided") +
+  ggtitle("Active OCTRI Supported RDW Services (detailed)")+
+  theme_minimal() +
+  coord_fixed(ratio = 0.1)+
+  theme(legend.title = element_blank()) +
+  theme( plot.caption = element_text(size = 9,vjust=-1, colour="#6E6E6E"))+
+   labs(caption = "Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd")+
+  scale_color_manual(values = ohsu)
+  p1a
+
+ 
+  
+```
+  
+   
+   
+####Tables of unique RDW services provided by year (detailed)
+```{r table_unique_service_number_by_year,echo=FALSE, message=FALSE, warning=FALSE}
+RDW_sum_unique <- spread(RDW_unique_year, service_service_name,n) %>% 
+  mutate(year=paste0("FY",year))
+  RDW_sum_unique[is.na(RDW_sum_unique)] <- 0
+  kable(RDW_sum_unique, format = "html", caption = "Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd") %>% 
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+####Tables of active RDW services provided by year (detailed)
+```{r table_service_number_by_year,echo=FALSE, message=FALSE, warning=FALSE}
+RDW_sum <- spread(RDW_tidy, service_service_name,number) 
+  kable(RDW_sum, format = "html", caption = "Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd") %>% 
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+```{r aggregated_service_graph}
+
+RDW_sum_unique2 <- RDW_sum_unique %>% 
+  gather(category,n,2:12) %>% 
+group_by(year) %>% 
+  summarise(number=sum(n))
+
+pb <-
+  ggplot(data = RDW_sum_unique2,
+  aes(x = year, y = number, group = 1)) +
+  geom_point(colour = "#5E97C9") +
+  geom_line(colour = "#5E97C9", size=.9) +
+  ggtitle("Unique OCTRI Supported RDW Services (aggregated)") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  #axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank()
+  ) +
+  geom_text(
+  data = RDW_sum_unique2,
+  aes(label = number, y = number),
+  size = 3.5,
+  position = position_dodge(1.5),
+  vjust = -1.3
+  )+
+  ylim(40, 100)+
+  theme(legend.title = element_blank())+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))+
+   labs(caption = "Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd")
+  pb
+
+
+RDW_tidy2 <- RDW_year_count[c(3:8)] %>% 
+  gather(year,n,2:6) %>%
+  group_by(year) %>% 
+  summarise(number=sum(n)) 
+p1b <-
+  ggplot(data = RDW_tidy2,
+  aes(x = year, y = number, group = 1)) +
+  geom_point(colour = "#5E97C9") +
+  geom_line(colour = "#5E97C9", size=.9) +
+  ggtitle("Active OCTRI Supported RDW Services (aggregated)") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  #axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.border = element_blank()
+  ) +
+  geom_text(
+  data = RDW_tidy2,
+  aes(label = number, y = number),
+  size = 3.5,
+  position = position_dodge(1.5),
+  vjust = -1.3
+  )+
+  ylim(72, 130)+
+  theme(legend.title = element_blank())+
+  theme( plot.caption = element_text(size = 9, vjust=-1, colour="#6E6E6E"))+
+   labs(caption = "Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd")
+  p1b
+ 
+
+```
+
+
+####Table of unique RDW services provided by year (aggregated)
+```{r table_unique_service_number_by_year_agg,echo=FALSE, message=FALSE, warning=FALSE}
+# plot aggregated unique service data  
+ RDW_sum_unique2.p<- RDW_sum_unique2%>% 
+ adorn_totals() 
+RDW_sum_unique3<-RDW_sum_unique2.p %>% 
+  select(year,number)
+kable(RDW_sum_unique3, format = "html") %>% 
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+####Table of active RDW services provided by year (aggregated)
+```{r table_service_number_by_year_agg,echo=FALSE, message=FALSE, warning=FALSE}
+# plot aggregated active service data     
+RDW_tidy2 <- RDW_year_count[c(3:8)] %>% 
+  gather(year,n,2:6) %>%
+  group_by(year) %>% 
+  summarise(number=sum(n)) 
+
+RDW_sum2 <- RDW_tidy2 %>% 
+  adorn_totals() 
+  RDW_sum3<-RDW_sum2[c(1:2)]
+  kable(RDW_sum3, format = "html") %>% 
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+# Self-Service Cohort Discovery Statistics
+```{r date_fix}
+cohort_long <- cohort %>% 
+ gather(date,n,2:75) %>% 
+
+mutate(date_fix=
+ substr(date, start = 2, stop = 8)) %>% 
+  
+mutate(date_fix2=
+         paste0(date_fix,"_01")) %>%       
+        
+mutate(date2 = as_date(ymd(date_fix2))) %>%
+  
+filter(date2>ymd("2012-06-01")) %>% 
+  
+  mutate(year = ifelse(
+  date2 < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  date2 < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  date2 < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  date2 < ymd("2016-07-01"),
+  "2016",
+  ifelse(date2 < ymd("2017-07-01"), "2017", "2018")
+  ))))) %>%
+  mutate(year = as.factor(year))
+```
+
+```{r user_graph}
+# graph for total number of users and number of active users
+cohort_short <- cohort_long %>%
+  select(date2, category = x1, n) %>%
+  spread(date2, n) %>%
+  mutate(category=ifelse(
+    category == "Total Number of Users (non-bmip) since Go-Live",
+    "Total User",
+    category)) %>% 
+  mutate(category=ifelse(
+    category == "Active User (logged-in/ran query) this period",
+    "Active User",
+    category)) %>% 
+  
+  filter(
+  category == "Total User"
+  ) %>%
+  
+  select(category,
+  'FY 2013'='2013-06-01',
+  'FY 2014'='2014-06-01',
+  'FY 2015'='2015-06-01',
+  'FY 2016'='2016-06-01',
+  'FY 2017'='2017-06-01') 
+
+cohort_short_graph9 <- cohort_short %>% 
+  gather(year,n, 2:6)
+
+##### for active users
+cohort_user_clean <- cohort_user %>% 
+
+mutate(date_fix=
+  paste0(time_period,"_01")) %>%       
+        
+mutate(date2 = as_date(ymd(date_fix))) %>%
+ 
+filter(date2>ymd("2012-06-01")) %>% 
+  
+  mutate(year = ifelse(
+  date2 < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  date2 < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  date2 < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  date2 < ymd("2016-07-01"),
+  "2016",
+  ifelse(date2 < ymd("2017-07-01"), "2017", "2018")
+  ))))) %>%
+  mutate(year = as.factor(year))
+
+cohort_user_table9 <- cohort_user_clean %>% 
+  select(year, full_name) %>% 
+  group_by(year,full_name) %>% 
+  unique() %>% 
+  ungroup(year) %>%
+  select(year) %>%
+  count(year) %>% 
+  filter(year!=2018) %>% 
+  mutate(category="Active User") %>% 
+  mutate(year=paste("FY",year)) %>% 
+  select(category,year,n)
+
+ ####combine two group
+ cohort_short_graph <-        rbind(cohort_short_graph9,cohort_user_table9)
+
+p2 <-
+  ggplot(data = cohort_short_graph, aes(
+  x = year,
+  y = n,
+  group = category,
+  color = category)) +
+  geom_point() +
+  geom_line(size=0.75) +
+  xlab("Year") + ylab("Count") +
+  theme_minimal() +
+  theme(legend.title = element_blank()) +
+  scale_color_manual(values = ohsu) +
+  theme(
+  axis.line = element_blank(),
+  #axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank() ) +
+  geom_text(data = cohort_short_graph9,colour ="#424242",
+  aes(label = n, y = n),
+  size = 3,
+  #position = position_dodge(1.5),
+  vjust = -1.7)+
+  geom_text(data = cohort_user_table9,colour ="#424242",
+  aes(label = n, y = n),
+  size = 3,
+  #position = position_dodge(1.5),
+  vjust = 2.2)+
+  ylim(-13, 450)+
+  ggtitle("Cohort Discovery User Statistics")+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1, colour="#6E6E6E"))+
+   labs(caption = "Source: file 'cohort_\ndiscovery_usage_stats (1).xlsx'\n Rob provided on January 18th")
+  p2
+
+```
+   
+###### *The "Total User" for each year is the total accumulated number of (non-OCTRI) users at the last month of each fiscal year. For example, by June 2017, the total accumulated number of users is 403, which was chosen to be the "Total Number of Users" for FY 2017.
+   
+   
+```{r activity_graph}
+# graph for number of queries in cohort discovery
+cohort_short_graph2 <- cohort_long %>%
+  select(year, category = x1, n) %>%
+  filter(category == "Number of Queries this period") %>% 
+  filter(year!=2018) %>% 
+  group_by(year) %>% 
+  summarize(number=sum(n)) %>% 
+  mutate(FY =paste("FY",year))
+
+p3 <-
+  ggplot(data = cohort_short_graph2,
+  aes(x = FY, y = number, group=1)) +
+  geom_point(colour = "#5E97C9") +
+  geom_line(colour = "#5E97C9", size=.9) +
+  ggtitle("Number of Cohort Discovery Queries") +
+  theme_minimal() +
+  theme(
+  #axis.line = element_blank(),
+  #axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank()
+  ) +
+  geom_text(
+  data = cohort_short_graph2,
+  aes(label = number, y = number),
+  size = 3.5,
+  position = position_dodge(1.5),
+  vjust = -1.5
+  )+
+  ylim(600, 2200)+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1,colour="#6E6E6E"))+
+   labs(caption = "Source: file 'cohort_\ndiscovery_usage_stats (1).xlsx'\n Rob provided on January 18th")
+
+  p3
+ 
+  
+```
+
+```{r user_level_activity}
+cohort_user_clean <- cohort_user %>% 
+
+mutate(date_fix=
+  paste0(time_period,"_01")) %>%       
+        
+mutate(date2 = as_date(ymd(date_fix))) %>%
+ 
+filter(date2>ymd("2012-06-01")) %>% 
+  
+  mutate(year = ifelse(
+  date2 < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  date2 < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  date2 < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  date2 < ymd("2016-07-01"),
+  "2016",
+  ifelse(date2 < ymd("2017-07-01"), "2017", "2018")
+  ))))) %>%
+  mutate(year = as.factor(year))
+
+cohort_user_table1 <- cohort_user_clean %>% 
+  select(full_name,year,number=nbr_run_queries) %>% 
+  group_by(full_name,year) %>% 
+  summarise(number = sum(number)) %>% 
+  filter(year!=2018)
+
+cohort_user_table2 <- cohort_user_table1 %>% 
+  select(year,number) %>% 
+  group_by(year) %>% 
+  summarise(mean= round(mean(number),1),median=median(number)) %>% 
+  gather(property,number,2:3) %>% 
+   mutate(FY =paste("FY",year))
+
+p4 <-
+  ggplot(data = cohort_user_table2,
+  aes(x = FY, y = number, group=property, color=property)) +
+  geom_point() +
+  geom_line(size=.9) +
+  ggtitle("Mean and Median Number of Queries Initiated by Each User") +
+  theme_minimal() +
+  theme(
+  axis.line = element_blank(),
+  #axis.text.x=element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank()
+  ) +
+  geom_text(
+  data = cohort_user_table2,
+  aes(label = number, y = number),
+  size = 3.5,
+  colour ="#424242",
+  #position = position_dodge(1.5),
+  vjust = -1.2
+  )+
+  scale_color_manual(values = ohsu)+
+  ylim(2, 20)+
+  theme( plot.caption = element_text(size = 9, hjust = 1,vjust=-1,colour="#6E6E6E"))+
+   labs(caption = "Source: file 'cohort_discovery_usage_stats (1).xlsx'\n Rob provided on January 18th")
+  p4
+ 
+  
+```
+
+
+
+```{r}
+#ggtheme
+#reorder(what you want to reorder, based on this varibale)
+#facets break down graph by some variables 
+```
+
+
+```{r missing_eid_fix, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+
+Serv_Fill <- By_Services %>% 
+mutate(project_pi_employee_id2=
+    ifelse(project_pi_full_name=="Jon Furuno", 11631,     
+    ifelse(!is.na(project_pi_employee_id), project_pi_employee_id,
+    ifelse(project_pi_full_name=="Alison Christy", 69812,
+    ifelse(project_pi_full_name=="Andrew Neice", 72270,
+    ifelse(project_pi_full_name=="David Harmon", 64136,
+    ifelse(project_pi_full_name=="PIkulkaew Dachsangvorn", 79979,
+    ifelse(project_pi_full_name=="Raymond Bergan", 77875,
+    ifelse(project_pi_full_name=="Cassie Barton", 71231,
+    ifelse(project_pi_full_name=="Jamie Warren", 52903,
+    ifelse(project_pi_full_name=="Gennadiy Bakis", 65410,
+    ifelse(project_pi_full_name=="Monica Sikka", 88002,
+    ifelse(project_pi_full_name=="Alexey Danilov", 76215,
+    ifelse(project_pi_full_name=="Amy Garcia", 70172,
+    ifelse(project_pi_full_name=="Maria Rodriguez", 48040,
+    ifelse(project_pi_full_name=="Brian O'Roak", 73571,
+    ifelse(project_pi_full_name=="Marcel Curlin", 79323,
+    ifelse(project_pi_full_name=="Enjae Jung", 77080,
+    ifelse(project_pi_full_name=="Adam Margolin", 74800,
+    ifelse(project_pi_full_name=="Myriam Loyo", 76267,
+    ifelse(project_pi_full_name=="Peter Jackson", 75605,
+    ifelse(project_pi_full_name=="Alex Ortega Loayza", 82652,
+    ifelse(project_pi_full_name=="Leo Urbinelli", 83700, "NA")))))))))))))))))))))))
+   
+```
+
+```{r bring_department_based_on_eid, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+Demo_Sub <- Demo %>% 
+  select(employee_number,assignment_number,employee_full_name,organization_number,organization_name)
+
+Serv_Dep <- left_join(Serv_Fill,Demo_Sub, by = c("project_pi_employee_id2"="employee_number"))
+
+OGA_Dep2 <- OGA_Dep %>% 
+  select("project_organization_name","project_owning_department","project_owning_division","project_owning_unit","gl_project_organization_number")
+
+Serv_Dep2 <- left_join(Serv_Dep,OGA_Dep2, by=c("organization_name"="project_organization_name"))
+  
+Serv_Dep2R <- Serv_Dep2 %>% 
+  filter(is.na(project_owning_department))
+
+
+
+```
+
+```{r department_check}
+
+department_check <- Serv_Dep2 %>% 
+  select(project_pi_full_name,project_pi_employee_id2, project_pi_department,project_owning_department,organization_name) %>% 
+  mutate(pi_organization_HR = organization_name) %>%
+  mutate(pi_department_Megellan = project_pi_department) %>%
+  mutate(pi_department_HR_Matched = project_owning_department) %>%
+  mutate(diff_check =
+  ifelse(pi_department_Megellan == pi_department_HR_Matched, "Matched", "Not Matched")) %>% 
+  select(project_pi_full_name,project_pi_employee_id2, pi_organization_HR,pi_department_Megellan,pi_department_HR_Matched,diff_check) 
+
+
+```
+
+```{r department_table_prep}
+Serv_Dep3 <- Serv_Dep2 %>%
+    select(
+    project_id,
+    service_service_name,
+    start_date,
+    project_short_title,
+    project_pi_full_name,
+    project_pi_employee_id,
+    project_pi_department,
+    project_owning_department,
+    project_owning_division,
+    project_owning_unit,
+    gl_project_organization_number
+    ) %>%
+    
+    mutate(dep.div = paste(project_owning_department, project_owning_division, sep =
+    "/")) %>%
+  
+    mutate(DepartmentPre = ifelse(
+    project_owning_department == "Medicine",
+    dep.div,
+    project_owning_department)) %>%
+  
+  #Due to NA problems, I have to replace NA with an actual string
+  mutate(project_pi_department1=ifelse(
+    is.na(project_pi_department),
+    "NA IS THE WORST",
+    project_pi_department
+  )) %>% 
+   mutate(project_owning_department1=ifelse(
+    is.na(project_owning_department),
+    "NA IS THE WORST",
+    project_owning_department
+  )) %>% 
+  
+    mutate(Department=
+    ifelse(project_pi_department1=="Medicine"& project_owning_department1=="Medicine",
+    DepartmentPre,  
+    ifelse(project_owning_department1=="Obstetrics & Gynecology",
+    project_owning_department1,
+    ifelse(project_owning_department1=="Otolaryngology & Head/Neck Surgery",
+    project_owning_department1,
+    ifelse(project_pi_department1=="Molecular and Medical Genetics",
+    "Molecular & Medical Genetics",
+    ifelse(project_pi_department1=="Obstetrics and Gynecology",
+    "Obstetrics & Gynecology",
+    ifelse(project_pi_department1=="NA IS THE WORST",
+    DepartmentPre,
+    project_pi_department1))))))) %>%  
+  
+mutate(start_date2 = as_date(mdy(start_date))) %>%
+  mutate(year = ifelse(
+  start_date2 < ymd("2013-07-01"),
+  "2013",
+  ifelse(
+  start_date2 < ymd("2014-07-01"),
+  "2014",
+  ifelse(
+  start_date2 < ymd("2015-07-01"),
+  "2015",
+  ifelse(
+  start_date2 < ymd("2016-07-01"),
+  "2016",
+  ifelse(start_date2 < ymd("2017-07-01"), "2017", "2018")
+  ))))) %>%
+  mutate(year = as.factor(year))
+
+Serv_Dep3Check2 <- Serv_Dep3 %>% 
+  select(project_pi_department1,project_owning_department1,DepartmentPre, Department)
+
+```
+
+```{r mismatch_check}
+Serv_Dep3Check <- Serv_Dep2 %>%
+  select(project_id,service_service_name,project_short_title,project_pi_full_name,project_pi_employee_id,project_owning_department,project_owning_division,project_owning_unit,gl_project_organization_number) %>% 
+
+filter(is.na(project_owning_department))
+
+```
+
+```{r unit_table_prep}
+OGA_Dep3 <- OGA_Dep2 %>%
+  select(project_owning_department, project_owning_unit) %>%
+  unique() %>% 
+  filter(!is.na(project_owning_department))
+  
+Serv_Dep3_unit_prep <- Serv_Dep3 %>%
+  mutate(
+  Department_unit =
+  ifelse(
+  project_pi_department1 == "Medicine" |
+  (project_pi_department1=="NA IS THE WORST" &
+  project_owning_department1 == "Medicine"),
+  "Medicine",Department))
+  
+Serv_Dep3_unit <-
+  left_join(
+  Serv_Dep3_unit_prep,
+  OGA_Dep3,
+  by = c("Department_unit" = "project_owning_department")
+  )
+  
+Serv_Dep3_unit_Check <-Serv_Dep3_unit %>% 
+  select(Department,project_owning_unit.x,project_owning_unit.y)
+
+Serv_Dep3_unitb <- Serv_Dep3_unit %>%
+  mutate(Unit =
+  ifelse(
+  is.na(project_owning_unit.y),
+  project_owning_unit.x,
+  project_owning_unit.y
+  ))
+Serv_Dep3_unitb_Check <- Serv_Dep3_unitb %>% 
+  select(project_id, year, project_pi_employee_id,  project_pi_department,project_owning_department, Department_unit,Department, project_owning_unit.x,project_owning_unit.y,Unit)
+```
+#Department Level Data
+
+#### Departments that utilized RDW by year (by services)
+```{r Dep_by_service, echo=FALSE, message=FALSE, warning=FALSE}
+DepSum <-Serv_Dep3 %>%
+filter(year!=2018) %>% 
+  crosstab(Department, year) %>% 
+  adorn_totals() 
+
+ kable(DepSum, format = "html",caption="Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd;\n HR data '2017-312 HRR - Employee Demographics (ALL).xlsx'\naccessed on December 22nd, 2017") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+#### Units that utilized RDW by year (by services)
+```{r Unit_by_service, echo=FALSE, message=FALSE, warning=FALSE}
+UnitSum <- Serv_Dep3_unitb %>%
+# group_by(Unit) %>% 
+#   count()
+  filter(year!=2018) %>% 
+  crosstab(Unit,year) %>% 
+  adorn_totals() 
+
+kable(UnitSum, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+
+```
+```{r unit_NA_Check}
+unit_NA_Check <- Serv_Dep3_unitb %>% 
+  filter(year!=2018) %>% 
+  filter(is.na(Department)|is.na(Unit))
+```
+
+```{r by_project_unique}
+Serv_Dep4 <-Serv_Dep3_unitb %>%
+select(project_id,Department,Unit) %>% 
+  unique()
+```
+#### Departments that utilized RDW (by projects)
+```{r Dep_by_project, echo=FALSE, message=FALSE, warning=FALSE}
+DepSum2 <-Serv_Dep4 %>%
+group_by(Department) %>% 
+  count() %>% 
+  arrange(desc(n))
+
+kable(DepSum2, format = "html",caption="Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd;\n HR data '2017-312 HRR - Employee Demographics (ALL).xlsx'\naccessed on December 22nd, 2017") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+#### Units that utilized RDW (by projects)
+```{r unit_by_project, echo=FALSE, message=FALSE, warning=FALSE}
+UnitSum3 <- Serv_Dep4 %>%
+group_by(Unit) %>% 
+  count() %>% 
+  arrange(desc(n))
+
+kable(UnitSum3, format = "html") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+#Award Level Data
+
+
+###Distribution of award type (by project)
+```{r table_award_type, echo=FALSE, message=FALSE, warning=FALSE}
+joined2 <- left_join(By_Project,oga_raw, by = c("project_id"="project_id"))%>%    
+# Kitt told me that records that have award funding status as "Awarded - Linked to OGA Award" should be deleted from data set.
+  
+filter(funding_award_funding_status!="Awarded - Linked to OGA Award" | is.na(funding_award_funding_status))
+
+summary2 <- joined2 %>%
+group_by(funding_award_record_type)%>%
+  count() %>% 
+ungroup(funding_award_record_type) %>% 
+  
+  mutate(funding_award_record_type =
+  ifelse(
+  is.na(funding_award_record_type),
+  "No OGA Match in Magellan",
+  funding_award_record_type
+  ))
+
+kable(summary2, format = "html",caption="Source: Magellan services data downloaded on January 25th;\nMagellan OGA data downloaded on December 22nd 2017;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+#### *For records that have “Non-OGA Award” as their award record type, their funding statuses are uncertain. Examples of reasons for non-OGA award flags include external awards (not sub-contracts), funding from general ledger (GL) accounts, pending OGA setup, pre-award (application submitted), not submitted, or industry sponsored studies pending funding in OGA.  
+```{r simplify_funding_status, echo=FALSE, message=FALSE, results='hide', warning=FALSE}
+joined2a <- joined2 %>%
+  mutate(
+  Funding_Status =
+  ifelse(
+  funding_award_record_type == "OGA Award" &
+  funding_award_funding_status == "Awarded" ,
+  "OGA Awarded",
+  ifelse(
+  funding_award_record_type == "Non-OGA Award" &
+  (
+  funding_award_funding_status == "Pre-Award" |
+  funding_award_funding_status == "Not Submitted"|
+  funding_award_funding_status == "N/A"|  
+  funding_award_funding_status == "Awarded - Linked to OGA Award"
+  ),
+  "Other",
+  ifelse(
+  funding_award_record_type == "Non-OGA Award" &
+  funding_award_funding_status == "Awarded",
+  "Outside Awarded",
+  ifelse(
+  funding_award_record_type == "Non-OGA Award" &
+   funding_award_funding_status == "Not Awarded",
+  "Not Awarded","Error Check"))))) 
+
+```
+
+```{r table_old_funding_status, echo=FALSE, message=FALSE, warning=FALSE}
+#Adrienne ask me to take this out, because the funding status for Non-OGA Award is not trustworthy at all. 
+
+ # table2 <- joined2a %>%
+ #   group_by(funding_award_record_type,funding_award_funding_status) %>%
+ #   summarize(n()) 
+ # 
+ #   kable(table2, format = "html") %>%
+ #   kable_styling(bootstrap_options = "striped", position = "left",
+ #                full_width = F)
+```
+
+
+
+
+
+```{r define_funding_source, echo=FALSE, message=FALSE, results='hide', warning=FALSE}
+#creates funding type fields, update this code if OGA changes their fields or starts using a specific designation for NIH
+joined3<-joined2a %>% 
+mutate(source_type =
+    ifelse(grepl("NIH", funding_award_funding_source_name), "NIH",
+    ifelse(grepl("National Institutes of Health", funding_award_funding_source_name), "NIH",
+    ifelse(grepl("NIH", funding_award_originating_sponsor),"NIH",
+    ifelse(grepl("NIH", funding_award_funding_type),"NIH",
+    ifelse(grepl("Industry", funding_award_funding_type),"Industry",
+    ifelse(grepl("Federal|State", funding_award_funding_type), "Other Government",
+    ifelse(grepl("Internal|Program Development|Defined Research", funding_award_funding_type), "Internal",
+    ifelse(funding_award_funding_source_name == "Oregon Health & Science Univ", "Internal",
+                            "Other"))))))))) %>% 
+mutate("NIH" = ifelse(source_type == "NIH", 1, 0)) %>% 
+mutate("Industry" = ifelse(source_type == "Industry", 1, 0)) %>% 
+mutate("Other_Government" = ifelse(source_type == "Other Government", 1, 0)) %>% 
+mutate("Internal" = ifelse(source_type == "Internal", 1, 0)) %>% 
+mutate("Other" = ifelse(source_type == "Other", 1, 0))
+
+```
+
+#### Funding source for "OGA Award" projects
+```{r table_award_type_by_source, echo=FALSE, message=FALSE, warning=FALSE}
+table4 <- joined3 %>%
+  filter(funding_award_record_type=="OGA Award") %>% 
+  crosstab(funding_award_record_type, source_type) 
+  kable(table4, format = "html",caption="Source: Magellan services data downloaded on January 25th;\nfile 'RDW-Services(1-23-18).xlsx' Justin provided on January 23rd;\n HR data '2017-312 HRR - Employee Demographics (ALL).xlsx'\naccessed on December 22nd, 2017") %>%
+  kable_styling(bootstrap_options = "striped", position = "left",
+                full_width = F)
+```
+
+
+```{r code_Lindsey_taught_me, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+RDW_new<-By_Services %>% 
+  select(project_id,service_service_name,project_short_title,project_pi_full_name) %>% 
+  group_by(project_id) %>% 
+  mutate(service=paste0("service_", seq_along(project_id))) %>% 
+  spread(service, service_service_name) %>% 
+
+  select (project_id,project_short_title,project_pi_full_name,service_1,service_2,service_3,service_4,service_5,service_6,service_7,service_8,service_9,service_10,service_11,service_12)
+
+```
+
+

@@ -1,0 +1,235 @@
+---
+title: "Erin Patient Map"
+author: "Leslie"
+date: "September 13, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","ggrepel","zipcode","maps", "viridis", "ggthemes","blscrapeR","ggmap","maps","geosphere") 
+
+```
+
+```{r data_locations}
+patients_csv <- 'raw_data/erin_patients.csv'
+erin_csv <- 'raw_data/erin.csv'
+comp_csv <- 'raw_data/comp.csv'
+
+ time_zone <-
+   c("#367be2",
+   "#e5870b")
+```
+
+```{r read_in}
+patients_raw <- read_csv(patients_csv) %>% clean_names()
+erin <- read_csv(erin_csv) %>% clean_names()
+comp <- read_csv(comp_csv) %>% clean_names()
+
+
+data(zipcode)
+us_map <- county_map_data
+
+zipcode <- zipcode %>% 
+  mutate(zip_code=as.numeric(zip))
+
+ga <- zipcode %>% 
+  filter(state == "GA") 
+
+states <- map_data("state")
+ga_map <- states %>%
+  filter(region %in% c("georgia"))
+
+```
+
+```{r}
+p_count <- patients_raw %>% 
+select(zip_code) %>% 
+  group_by(zip_code) %>% 
+   summarise(zip_count = n())
+
+
+p_all <- p_count %>% 
+  left_join(zipcode,by = "zip_code") %>% 
+  filter(state=="GA")
+
+p_all2 <- p_count %>% 
+  full_join(zipcode,by = "zip_code") %>% 
+  filter(state=="GA") %>% 
+  mutate(yes=ifelse(is.na(zip_count),"no","yes")) %>% 
+  mutate(zip_count=ifelse(yes=="no",3.5,zip_count)) %>% 
+  mutate(e_lon = -84.46108) %>% 
+  mutate(e_lat = 33.87777)
+
+#mat <- distm(p_all2[,c('e_lon','e_lat')], p_all2[,c('longitude','latitude')], fun=distVincentyEllipsoid)
+
+dis <- mat [1:2,]
+dis2<-data.frame(t(dis)) %>% 
+  select(distance=X1)
+p_all2 <- data.frame(cbind(p_all2,dis2))
+near <- p_all2 %>% 
+  filter(distance < 12000) %>% 
+  filter(distance!=3894.1732
+)
+```
+
+```{r}
+distm(c(-84.46108,33.87777), c(-84.47405,33.84437), fun=distVincentyEllipsoid)
+```
+
+```{r}
+
+register_google(key = "AIzaSyCSZ_nt8yFBAj6A9fSSdvLu6wMkjZv22Rg") 
+erin_p <- c(lon = -84.4610825, lat = 33.8777733)
+
+
+p1<- ggmap(get_map(location = erin_p), source = "osm", zoom=9)+
+  geom_point(data=p_all2, aes(x = longitude, y = latitude, size=zip_count,  alpha = .3,color=yes), inherit.aes = F)+
+    geom_point(data=erin, aes(x = a, y = b), inherit.aes = F,shape=18,size=2,color="#141414")+
+    geom_point(data=comp, aes(x = a, y = b), inherit.aes = F,shape=18,size=2,color="#e60000")+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())+  
+   geom_text(data = near, aes(x = longitude, y = latitude, label = zip_code, size=2),check_overlap = TRUE)
+ 
+
+
+p1
+ggsave("ggplots/with zip_overlap.pdf")
+```
+
+
+```{r}
+erin_p <- c(lon = -84.4610825, lat = 33.8777733)
+
+
+practice <- ggmap(get_map(location = erin_p), source = "osm")+
+  geom_point(data=erin, aes(x = a, y = b), inherit.aes = F,color="#ff8000",shape=18,size=4)+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+practice
+ggsave("ggplots/seven.pdf")
+```
+
+```{r}
+erin_p <- c(lon = -84.4610825, lat = 33.8777733)
+
+
+p3<- ggmap(get_map(location = erin_p), source = "osm")+
+  geom_point(data=p_all2, aes(x = longitude, y = latitude, size=zip_count,  alpha = .3,color=yes), inherit.aes = F)+
+    geom_point(data=erin, aes(x = a, y = b), inherit.aes = F,shape=18,size=3)+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+p3
+ggsave("ggplots/nine.pdf")
+```
+
+```{r}
+
+
+P5 <- ggmap(get_googlemap(location = 'Atlanta'))+
+  geom_point(data=p_all, aes(x = longitude, y = latitude, size=zip_count, alpha = .3), inherit.aes = F)+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+P5
+ggsave("ggplots/ten.pdf")
+```
+```{r}
+erin <- c(lon = -84.4610825, lat = 33.8777733)
+
+
+p8<- ggmap(get_map(location = erin), source = "osm")+
+  geom_point(data=p_all, aes(x = longitude, y = latitude, size=zip_count,  alpha = .5), inherit.aes = F)+
+
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+
+p8
+ggsave("ggplots/four.pdf")
+```
+
+```{r}
+
+ga_map <- states %>%
+  filter(region %in% c("georgia"))
+
+ggplot(data = ga_map) + 
+  geom_polygon(aes(x = long, y = lat), color = "black") 
+
+p1 <- ggplot() +
+    geom_map(data=us_map, map=us_map,
+             aes(x=long, y=lat, map_id=id, group=group),
+             fill="#ffffff", color="#0e0e0e", size=0.15) +
+    geom_map(data=df, map=us_map, aes_string(map_id="fips", fill=df$rate_d),
+             color="#0e0e0e", size=0.15) +
+    scale_fill_brewer()+
+    coord_equal() +
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          legend.title=element_blank())
+p1
+```
+     

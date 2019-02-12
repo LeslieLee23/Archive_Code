@@ -1,0 +1,18 @@
+"0","erin_p <- c(lon = -84.4610825, lat = 33.8777733)"
+"0","practice <- ggmap(get_map(location = erin_p), source = ""osm"")+"
+"0","  geom_point(data=erin, aes(x = a, y = b), inherit.aes = F,color=""#ff8000"",shape=18,size=4)+"
+"0","    theme(axis.line=element_blank(),"
+"0","          axis.text.x=element_blank(),"
+"0","          axis.text.y=element_blank(),"
+"0","          axis.ticks=element_blank(),"
+"0","          axis.title.x=element_blank(),"
+"0","          axis.title.y=element_blank(),"
+"0","          panel.grid.major = element_blank(),"
+"0","          panel.grid.minor = element_blank(),"
+"0","          panel.border = element_blank(),"
+"0","          panel.background = element_blank(),"
+"0","          legend.title=element_blank())"
+"2","Source : https://maps.googleapis.com/maps/api/staticmap?center=33.877773,-84.461083&zoom=10&size=640x640&scale=2&maptype=terrain&language=en-EN&key=AIzaSyCSZ_nt8yFBAj6A9fSSdvLu6wMkjZv22Rg
+"
+"2","Error in fortify(data) : object 'erin' not found
+"

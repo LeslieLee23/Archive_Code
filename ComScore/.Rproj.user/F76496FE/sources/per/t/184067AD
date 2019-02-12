@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1548202698723.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "184067AD",
+    "lastKnownWriteTime" : 31244147622084717,
+    "last_content_update" : 1548202698723,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "4A80D838",
+        "caption" : "Cons",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=Cons&cache_key=4A80D838",
+        "displayedObservations" : 1704,
+        "environment" : "",
+        "object" : "Cons",
+        "preview" : 0,
+        "totalObservations" : 1704,
+        "variables" : 7
+    },
+    "relative_order" : 6,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

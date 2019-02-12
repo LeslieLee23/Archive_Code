@@ -1,0 +1,94 @@
+---
+title: "Connon"
+author: "Leslie"
+date: "September 3, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","gtable") # list packages needed
+```
+
+```{r data_locations}
+unit_csv <- 'raw_data/unit_raw.csv'
+revenue_csv <- 'raw_data/revenue_raw.csv'
+state_csv <- 'raw_data/state_raw.csv'
+```
+
+```{r read_in}
+unit_raw <- read_csv(unit_csv) %>% clean_names()
+revenue_raw <- read_csv(revenue_csv) %>% clean_names()
+state_raw <- read_csv(state_csv) %>% clean_names()
+```
+
+```{r}
+
+revenue_clean <- revenue_raw %>% 
+  filter(crm!=0)
+ 
+unit_clean <- unit_raw %>% 
+   filter(crm!=0)
+
+reveune_clean <- revenue_raw %>% 
+   filter(crm!=0)
+
+unit_revenue <- unit_clean %>%
+  left_join(revenue_clean, by = "crm") 
+
+  
+```
+
+```{r}
+ revenue_long<- reveune_clean %>% 
+
+gather(month,revenue,2:116) %>%
+  filter (!is.na(revenue)) %>% 
+
+  group_by(crm) %>%
+    mutate(rank = order(order(month, decreasing=FALSE)))
+  
+ revenue_count<- revenue_long %>% 
+   group_by(crm) %>% 
+    summarise(toal_month = n())
+
+ revenue_combo <- revenue_long %>% 
+    left_join(revenue_count, by = "crm") %>% 
+   group_by(crm) %>% 
+   filter(toal_month>=6) %>% 
+   
+   mutate(length=ifelse(toal_month<12,1,ifelse(toal_month<24,2,0)))
+ 
+##Obs dropped from 530 to 482 when practice who joined less than 6 months are dropped, 48 practices were dropped
+# revenue_count2<- revenue_combo %>% 
+#  group_by(crm) %>% 
+#  summarise(toal_month = n()) %>% 
+#  filter(toal_month>=6)
+  
+```
+
+```{r}
+ rev <- revenue_combo %>%
+  mutate(start1=ifelse(length==0 & rank<=12, 1,0)) %>% 
+  mutate(start2=ifelse(length==2 & rank<=6, 1,0)) %>% 
+  mutate(start3=ifelse(length==1 & rank<=3, 1,0)) %>% 
+  mutate(month_dum==total_month-12)
+           ifelse(length==0, total_month-12,
+                   ifelse(length==2, total_month-6,
+                   ifelse(length==1, total_month-3)))) %>% 
+
+  
+  
+  mutate(end1=ifelse(length==0 & rank>total_month-12, 1,0)) %>% 
+  mutate(end2=ifelse(length==2 & rank>total_month-6, 1,0)) %>% 
+  mutate(end3=ifelse(length==1 & rank>total_month-3, 1,0)) %>% 
+  mutate(start= start1 + start2 + start3) %>% 
+  mutate(end= end1 + end2 + end3) 
+  
+```

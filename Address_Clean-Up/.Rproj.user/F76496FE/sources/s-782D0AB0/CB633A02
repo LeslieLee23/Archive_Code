@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1534992798369.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1683928192",
+    "id" : "CB633A02",
+    "lastKnownWriteTime" : 1522699637,
+    "last_content_update" : 1522699637,
+    "path" : "C:/Users/LLee/Desktop/R files/rdw/RDW.Rmd",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "164,63",
+        "scrollLine" : "154"
+    },
+    "relative_order" : 6,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1548048038435.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1942187669",
+    "id" : "224A233C",
+    "lastKnownWriteTime" : 1548196312,
+    "last_content_update" : 1548196312660,
+    "path" : "C:/Users/LLee/Desktop/R files/ComScore/plot.Rmd",
+    "project_path" : "plot.Rmd",
+    "properties" : {
+        "cursorPosition" : "22,3",
+        "scrollLine" : "9",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

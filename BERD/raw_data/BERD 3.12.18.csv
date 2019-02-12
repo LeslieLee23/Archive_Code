@@ -1,0 +1,21 @@
+g_number,a,b,c,d,e,f,g
+1,year,Projects,Individual Investigators,,,,
+1,FY12,45,40,,,,
+1,FY13,89,75,,,,
+1,FY14,97,80,,,,
+1,FY15,138,98,,,,
+1,FY16,154,114,,,,
+1,FY17,189,150,,,,
+1,FY18,103,85,,,,
+2,year,Drop In Sessions,Individual Attendees,,,,
+2,FY14,39,60,,,,
+2,FY15,63,90,,,,
+2,FY16,119,132,,,,
+2,FY17,107,74,,,,
+2,FY18,106,77,,,,
+3,year,BERD Leadership,BERD Faculty,BERD Staff,BDP (USR) Leadership,BDP (USR) Faculty,BDP (USR) Staff
+3,FY14,0.3,0.55,0.26,0.15,0.1,0.62
+3,FY15,0.33,0.53,0.4,0.2,0.83,2.11
+3,FY16,0.32,0.31,0.51,0.25,0.08,4.03
+3,FY17,0.1,0.09,0.54,0.11,0,3.37
+3,FY18,0.13,0.43,1.09,0.17,0,3.09

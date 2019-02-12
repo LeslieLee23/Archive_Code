@@ -1,0 +1,438 @@
+---
+title: "Average GR"
+author: "Leslie"
+date: "September 22, 2018"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","gtable","pwr") # list packages needed
+```
+
+```{r data_locations}
+unit_csv <- 'raw_data/unit_raw.csv'
+revenue_csv <- 'raw_data/revenue_raw.csv'
+state_csv <- 'raw_data/state_raw.csv'
+```
+
+```{r read_in}
+unit_raw <- read_csv(unit_csv) %>% clean_names()
+revenue_raw <- read_csv(revenue_csv) %>% clean_names()
+state_raw <- read_csv(state_csv) %>% clean_names()
+```
+
+```{r}
+
+revenue_clean <- revenue_raw %>% 
+  filter(crm!=0)
+ 
+unit_clean <- unit_raw %>% 
+   filter(crm!=0)
+
+rev_clean <- revenue_raw %>% 
+   filter(crm!=0)
+
+unit_revenue <- unit_clean %>%
+  left_join(revenue_clean, by = "crm") 
+  
+```
+
+```{r}
+rev_gr <- rev_clean %>% 
+  mutate(g0901=(y0902-y0901)/y0901) %>% 
+  mutate(g0902=(y0903-y0902)/y0902) %>% 
+  mutate(g0903=(y0904-y0903)/y0903) %>% 
+  mutate(g0904=(y0905-y0904)/y0904) %>% 
+  mutate(g0905=(y0906-y0905)/y0905) %>% 
+  mutate(g0906=(y0907-y0906)/y0906) %>% 
+  mutate(g0907=(y0908-y0907)/y0907) %>% 
+  mutate(g0908=(y0909-y0908)/y0908) %>% 
+  mutate(g0909=(y0910-y0909)/y0909) %>% 
+  mutate(g0910=(y0911-y0910)/y0910) %>% 
+  mutate(g0911=(y0912-y0911)/y0911) %>% 
+  mutate(g0912=(y1001-y0912)/y0912) %>% 
+  
+  mutate(g1001=(y1002-y1001)/y1001) %>% 
+  mutate(g1002=(y1003-y1002)/y1002) %>% 
+  mutate(g1003=(y1004-y1003)/y1003) %>% 
+  mutate(g1004=(y1005-y1004)/y1004) %>% 
+  mutate(g1005=(y1006-y1005)/y1005) %>% 
+  mutate(g1006=(y1007-y1006)/y1006) %>% 
+  mutate(g1007=(y1008-y1007)/y1007) %>% 
+  mutate(g1008=(y1009-y1008)/y1008) %>% 
+  mutate(g1009=(y1010-y1009)/y1009) %>% 
+  mutate(g1010=(y1011-y1010)/y1010) %>% 
+  mutate(g1011=(y1012-y1011)/y1011) %>% 
+  mutate(g1012=(y1101-y1012)/y1012) %>%
+  
+  mutate(g1101=(y1102-y1101)/y1101) %>% 
+  mutate(g1102=(y1103-y1102)/y1102) %>% 
+  mutate(g1103=(y1104-y1103)/y1103) %>% 
+  mutate(g1104=(y1105-y1104)/y1104) %>% 
+  mutate(g1105=(y1106-y1105)/y1105) %>% 
+  mutate(g1106=(y1107-y1106)/y1106) %>% 
+  mutate(g1107=(y1108-y1107)/y1107) %>% 
+  mutate(g1108=(y1109-y1108)/y1108) %>% 
+  mutate(g1109=(y1110-y1109)/y1109) %>% 
+  mutate(g1110=(y1111-y1110)/y1110) %>% 
+  mutate(g1111=(y1112-y1111)/y1111) %>% 
+  mutate(g1112=(y1201-y1112)/y1112) %>%
+  
+  mutate(g1201=(y1202-y1201)/y1201) %>% 
+  mutate(g1202=(y1203-y1202)/y1202) %>% 
+  mutate(g1203=(y1204-y1203)/y1203) %>% 
+  mutate(g1204=(y1205-y1204)/y1204) %>% 
+  mutate(g1205=(y1206-y1205)/y1205) %>% 
+  mutate(g1206=(y1207-y1206)/y1206) %>% 
+  mutate(g1207=(y1208-y1207)/y1207) %>% 
+  mutate(g1208=(y1209-y1208)/y1208) %>% 
+  mutate(g1209=(y1210-y1209)/y1209) %>% 
+  mutate(g1210=(y1211-y1210)/y1210) %>% 
+  mutate(g1211=(y1212-y1211)/y1211) %>% 
+  mutate(g1212=(y1301-y1212)/y1212) %>%
+
+  mutate(g1301=(y1302-y1301)/y1301) %>% 
+  mutate(g1302=(y1303-y1302)/y1302) %>% 
+  mutate(g1303=(y1304-y1303)/y1303) %>% 
+  mutate(g1304=(y1305-y1304)/y1304) %>% 
+  mutate(g1305=(y1306-y1305)/y1305) %>% 
+  mutate(g1306=(y1307-y1306)/y1306) %>% 
+  mutate(g1307=(y1308-y1307)/y1307) %>% 
+  mutate(g1308=(y1309-y1308)/y1308) %>% 
+  mutate(g1309=(y1310-y1309)/y1309) %>% 
+  mutate(g1310=(y1311-y1310)/y1310) %>% 
+  mutate(g1311=(y1312-y1311)/y1311) %>% 
+  mutate(g1312=(y1401-y1312)/y1312) %>%
+  
+  mutate(g1401=(y1402-y1401)/y1401) %>% 
+  mutate(g1402=(y1403-y1402)/y1402) %>% 
+  mutate(g1403=(y1404-y1403)/y1403) %>% 
+  mutate(g1404=(y1405-y1404)/y1404) %>% 
+  mutate(g1405=(y1406-y1405)/y1405) %>% 
+  mutate(g1406=(y1407-y1406)/y1406) %>% 
+  mutate(g1407=(y1408-y1407)/y1407) %>% 
+  mutate(g1408=(y1409-y1408)/y1408) %>% 
+  mutate(g1409=(y1410-y1409)/y1409) %>% 
+  mutate(g1410=(y1411-y1410)/y1410) %>% 
+  mutate(g1411=(y1412-y1411)/y1411) %>% 
+  mutate(g1412=(y1501-y1412)/y1412) %>%
+  
+  mutate(g1501=(y1502-y1501)/y1501) %>% 
+  mutate(g1502=(y1503-y1502)/y1502) %>% 
+  mutate(g1503=(y1504-y1503)/y1503) %>% 
+  mutate(g1504=(y1505-y1504)/y1504) %>% 
+  mutate(g1505=(y1506-y1505)/y1505) %>% 
+  mutate(g1506=(y1507-y1506)/y1506) %>% 
+  mutate(g1507=(y1508-y1507)/y1507) %>% 
+  mutate(g1508=(y1509-y1508)/y1508) %>% 
+  mutate(g1509=(y1510-y1509)/y1509) %>% 
+  mutate(g1510=(y1511-y1510)/y1510) %>% 
+  mutate(g1511=(y1512-y1511)/y1511) %>% 
+  mutate(g1512=(y1601-y1512)/y1512) %>%
+
+  mutate(g1601=(y1602-y1601)/y1601) %>% 
+  mutate(g1602=(y1603-y1602)/y1602) %>% 
+  mutate(g1603=(y1604-y1603)/y1603) %>% 
+  mutate(g1604=(y1605-y1604)/y1604) %>% 
+  mutate(g1605=(y1606-y1605)/y1605) %>% 
+  mutate(g1606=(y1607-y1606)/y1606) %>% 
+  mutate(g1607=(y1608-y1607)/y1607) %>% 
+  mutate(g1608=(y1609-y1608)/y1608) %>% 
+  mutate(g1609=(y1610-y1609)/y1609) %>% 
+  mutate(g1610=(y1611-y1610)/y1610) %>% 
+  mutate(g1611=(y1612-y1611)/y1611) %>% 
+  mutate(g1612=(y1701-y1612)/y1612) %>%
+  
+  mutate(g1701=(y1702-y1701)/y1701) %>% 
+  mutate(g1702=(y1703-y1702)/y1702) %>% 
+  mutate(g1703=(y1704-y1703)/y1703) %>% 
+  mutate(g1704=(y1705-y1704)/y1704) %>% 
+  mutate(g1705=(y1706-y1705)/y1705) %>% 
+  mutate(g1706=(y1707-y1706)/y1706) %>% 
+  mutate(g1707=(y1708-y1707)/y1707) %>% 
+  mutate(g1708=(y1709-y1708)/y1708) %>% 
+  mutate(g1709=(y1710-y1709)/y1709) %>% 
+  mutate(g1710=(y1711-y1710)/y1710) %>% 
+  mutate(g1711=(y1712-y1711)/y1711) %>% 
+  mutate(g1712=(y1801-y1712)/y1712) %>%
+  
+  mutate(g1801=(y1802-y1801)/y1801) %>% 
+  mutate(g1802=(y1803-y1802)/y1802) %>% 
+  mutate(g1803=(y1804-y1803)/y1803) %>% 
+  mutate(g1804=(y1805-y1804)/y1804) %>% 
+  mutate(g1805=(y1806-y1805)/y1805) %>% 
+  mutate(g1806=(y1807-y1806)/y1806) %>% 
+ 
+select(1,117:230)
+  
+```
+
+
+```{r}
+ rev_gr_long<- rev_gr %>% 
+gather(month,rev_gr,2:115) %>%
+  filter (!is.na(rev_gr)) %>% 
+group_by(crm) %>%
+    mutate(rank = order(order(month, decreasing=FALSE)))
+  
+rev_count_17 <- rev_gr_long %>% 
+   group_by(crm) %>% 
+   filter (month!="g1801") %>% 
+   filter (month!="g1802") %>% 
+   filter (month!="g1803") %>% 
+   filter (month!="g1804") %>% 
+   filter (month!="g1805") %>% 
+   filter (month!="g1806") %>% 
+   filter (month!="g1807") %>% 
+    summarise(total_month = n())
+
+rev_combo_17 <- rev_gr_long %>% 
+    left_join(rev_count_17, by = "crm") %>% 
+   group_by(crm) %>% 
+   filter(total_month >=6) %>% 
+   group_by(crm) %>% 
+   filter (month!="g1801") %>% 
+   filter (month!="g1802") %>% 
+   filter (month!="g1803") %>% 
+   filter (month!="g1804") %>% 
+   filter (month!="g1805") %>% 
+   filter (month!="g1806") %>% 
+   filter (month!="g1807") 
+ 
+ rev_count_18 <- rev_gr_long %>% 
+   group_by(crm) %>% 
+   filter (month=="g1801"|month=="g1802"|month=="g1803"|month=="g1804"|month=="g1805"|month=="g1806"|month=="g1807") %>% 
+    summarise(total_month = n())
+
+rev_combo_18 <- rev_gr_long %>% 
+    left_join(rev_count_18, by = "crm") %>% 
+   group_by(crm) %>% 
+    filter (month=="g1801"|month=="g1802"|month=="g1803"|month=="g1804"|month=="g1805"|month=="g1806"|month=="g1807")
+
+##2017 only
+ rev_count_2017 <- rev_gr_long %>% 
+   group_by(crm) %>% 
+   filter (month=="g1701"|month=="g1702"|month=="g1703"|month=="g1704"|month=="g1705"|month=="g1706"|month=="g1707") %>% 
+    summarise(total_month = n())
+
+rev_combo_2017 <- rev_gr_long %>% 
+    left_join(rev_count_2017, by = "crm") %>% 
+   group_by(crm) %>% 
+    filter (month=="g1701"|month=="g1702"|month=="g1703"|month=="g1704"|month=="g1705"|month=="g1706"|month=="g1707")
+ 
+##Obs dropped from 530 to 482 when practice who joined less than 6 months are dropped, 48 practices were dropped
+# revenue_count2<- revenue_combo %>% 
+#  group_by(crm) %>% 
+#  summarise(toal_month = n()) %>% 
+#  filter(toal_month>=6)
+  
+```
+
+```{r}
+state_c <- state_raw %>% 
+  select(crm="member_id",state)
+```
+
+```{r}
+avgr17<-rev_combo_17 %>% 
+  select(crm,rev_gr) %>% 
+  group_by(crm) %>% 
+  summarise(total_rev_gr = sum(rev_gr)) %>% 
+  left_join(rev_count_17,by="crm") %>% 
+  mutate(avgr=total_rev_gr/total_month) %>% 
+  left_join(state_c,by="crm")
+
+avgr18<-rev_combo_18 %>% 
+  select(crm,rev_gr) %>% 
+  group_by(crm) %>% 
+  summarise(total_rev_gr = sum(rev_gr)) %>% 
+  left_join(rev_count_18,by="crm") %>% 
+  mutate(avgr=total_rev_gr/total_month) %>% 
+  left_join(state_c,by="crm")
+```
+
+```{r}
+avgr17_s <- avgr17 %>% 
+  mutate(state=trimws(state)) %>% 
+  
+  mutate(hum=ifelse(state=="Arizona"|
+                    state=="Arkansas"|
+                    state=="Nevada"|
+                    state=="Ohio"|
+                    state=="Oklahoma"|
+                    state=="Texas"|
+                    state=="Washington",
+              "old",
+             ifelse(state=="Alabama"|
+                    state=="Colorado"|
+                    state=="Georgia"|
+                    state=="Idaho"|
+                    state=="Illinois"|
+                    state=="Indiana"|
+                    state=="Iowa"|
+                    state=="Kansas"|
+                    state=="Kentucky"|
+                    state=="Louisiana"|
+                    state=="Michigan"|
+                    state=="Minnesota"|
+                    state=="Mississippi"|
+                    state=="Missouri"|
+                    state=="Montana"|
+                    state=="Nebraska"|
+                    state=="New Mexico"|
+                    state=="North Carolina"|
+                    state=="North Dakota"|
+                    state=="Oregon"|
+                    state=="Pennsylvania"|
+                    state=="South Carolina"|
+                    state=="South Dakota"|
+                    state=="Utah"|
+                    state=="Virginia"|
+                    state=="West Virginia"|
+                    state=="Wisconsin",
+              "new", "untouched"))) %>% 
+  filter(!is.na(avgr)) %>% 
+  filter(!is.infinite(avgr))%>% 
+  filter(!is.na(state)) 
+```
+
+
+```{r}
+avgr18_s <- avgr18 %>% 
+  mutate(state=trimws(state)) %>% 
+  
+  mutate(hum=ifelse(state=="Arizona"|
+                    state=="Arkansas"|
+                    state=="Nevada"|
+                    state=="Ohio"|
+                    state=="Oklahoma"|
+                    state=="Texas"|
+                    state=="Washington",
+              "old",
+             ifelse(state=="Alabama"|
+                    state=="Colorado"|
+                    state=="Georgia"|
+                    state=="Idaho"|
+                    state=="Illinois"|
+                    state=="Indiana"|
+                    state=="Iowa"|
+                    state=="Kansas"|
+                    state=="Kentucky"|
+                    state=="Louisiana"|
+                    state=="Michigan"|
+                    state=="Minnesota"|
+                    state=="Mississippi"|
+                    state=="Missouri"|
+                    state=="Montana"|
+                    state=="Nebraska"|
+                    state=="New Mexico"|
+                    state=="North Carolina"|
+                    state=="North Dakota"|
+                    state=="Oregon"|
+                    state=="Pennsylvania"|
+                    state=="South Carolina"|
+                    state=="South Dakota"|
+                    state=="Utah"|
+                    state=="Virginia"|
+                    state=="West Virginia"|
+                    state=="Wisconsin",
+              "new", "untouched"))) %>% 
+  filter(!is.na(avgr)) %>% 
+  filter(!is.infinite(avgr))%>% 
+  filter(!is.na(state)) %>% 
+  filter(avgr<10) %>% 
+  filter(avgr>-10)
+```
+
+```{r}
+  avgr17_crm <- avgr17_s %>% 
+  select(crm,hum) 
+
+
+weighted_17 <- rev_combo_17 %>% 
+  filter(rev_gr<1000) %>% 
+  filter(rev_gr>-1000) %>% 
+  filter(!is.infinite(rev_gr))%>%
+  left_join(avgr17_crm,by="crm") %>% 
+  select(hum,rev_gr,total_month) %>% 
+  group_by(hum) %>% 
+  filter(!is.na(hum)) %>% 
+  summarise(GR=sum(rev_gr),total_month=sum(total_month)) %>% 
+  mutate(w_avgr=GR/total_month)
+```
+
+```{r}
+avgr17_sum <- avgr17_s %>% 
+  group_by(hum) %>% 
+  summarise(average_gr = mean(avgr), number=n()) 
+
+  
+avgr18_sum <- avgr18_s %>% 
+  group_by(hum) %>% 
+  summarise(average_gr = mean(avgr))  
+
+
+old_new_17 <- avgr17_s %>% 
+  filter(hum!="untouched") %>% 
+  mutate(avgr=round(avgr, digits = 5))
+  
+  t.test(avgr ~ hum , old_new_17 )
+
+
+```
+
+
+
+```{r}
+
+old_untouched <- rev_hum %>% 
+  filter(hum=="untouched"|hum=="old")
+t.test(GR2017 ~ hum, old_untouched )
+
+new_untouched <- rev_hum %>% 
+  filter(hum=="new"|hum=="untouched")
+t.test(GR2017 ~ hum, new_untouched )
+
+old_new_w <- rev_hum %>% 
+  filter(hum=="new"|hum=="old")
+t.test(weight ~ hum,old_new )
+
+old_untouched_w <- rev_hum %>% 
+  filter(hum=="untouched"|hum=="old")
+t.test(weight ~ hum, old_untouched )
+
+new_untouched_w <- rev_hum %>% 
+  filter(hum=="new"|hum=="untouched")
+t.test(weight ~ hum, new_untouched )
+            
+rev_17_final<- rev_hum %>%        
+select(hum,total_month,weight,GR2017) %>% 
+  group_by(hum) %>% 
+  summarise(sum_grow = sum(weight),sum_month=sum(total_month), number=n(),ave_gr=mean(GR2017)) %>% 
+  mutate(rate=sum_grow/(sum_month/12))
+  
+  sum1 <-rev_hum %>% 
+    ungroup(crm) %>% 
+  summarise(ave_gr=mean(GR2017))
+  
+  sum2 <- rev_hum %>% 
+    ungroup(crm) %>% 
+    summarise(sum_grow = sum(weight),sum_month=sum(total_month), number=n(),ave_gr=mean(GR2017)) %>% 
+  mutate(rate=sum_grow/(sum_month/12))
+```
+```{r}
+pwr.t2n.test(n1 =99 , n2=149 , d =0.01702801 , sig.level =NULL, power = 0.8)
+```
+
+```{r}
+(-0.02767836+0.03737542)/(sd(old_new$weight))
+```
+

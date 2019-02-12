@@ -1,0 +1,45 @@
+---
+title: "six"
+author: "Leslie"
+date: "January 22, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","gtable","maptools") # list packages needed
+```
+
+```{r data_locations}
+all_csv <- 'raw_data/six.csv'
+
+```
+
+```{r read_in}
+all_raw <- read_csv(all_csv) %>% clean_names() %>% 
+  mutate(single_hh = paste(headend_no, household_no, sep="^")) %>% 
+
+Cons <-all_raw %>% 
+  select(single_hh,a,b,c,d,e,denominator)
+```
+
+
+```{r read_in}
+q1<- all_raw %>% 
+  filter(a==0 & b==0 & c==0 & d==0 & e==0 & denominator==0)
+
+q2 <- all_raw %>% 
+  adorn_totals() 
+
+```
+
+```{r read_in}
+q3 <- all_raw %>% 
+  select(headend_no,a,b,c,d,e, denominator) 
+  
+```

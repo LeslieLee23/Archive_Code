@@ -1,0 +1,3 @@
+"0","#list packages needed"
+"0","library(install.load)"
+"0","install_load(""tidyverse"",""janitor"",""lubridate"",""purrr"",""stringr"", ""readr"", ""dplyr"", ""tidyr"", ""readxl"", ""data.table"", ""tidyselect"", ""knitr"",""kableExtra"", ""parsedate"",""rio"",""stringi"",""stringr"",""ggplot2"", ""cowplot"") "

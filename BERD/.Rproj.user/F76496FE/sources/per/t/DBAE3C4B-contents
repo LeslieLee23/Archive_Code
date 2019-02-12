@@ -1,0 +1,165 @@
+---
+title: "Quick Facts BERD"
+author: "Leslie Li"
+date: "3/12/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+options(knitr.table.format = "html") 
+```
+
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2","grid","gtable") # list packages needed
+```
+
+```{r data_locations}
+all_csv <- 'raw_data/BERD 3.12.18.csv'
+
+```
+
+```{r read_in}
+all_raw <- read_csv(all_csv) %>% clean_names()
+```
+
+```{r}
+project<-all_raw %>% 
+  filter(g_number==1) %>% 
+  select(Year=a,Project=b,Investigators=c) %>% 
+  filter(Year!="year") %>% 
+  mutate(Project=as.numeric(Project)) %>% 
+  mutate(Investigators=as.numeric(Investigators))
+```
+
+```{r}
+drop<-all_raw %>% 
+  filter(g_number==2) %>% 
+  select(Year=a,Sessions=b,Attendees=c) %>% 
+  filter(Year!="year") %>% 
+  group_by(Year) %>% 
+  gather(type,n,2:3) %>% 
+  ungroup() %>% 
+  mutate(n=as.numeric(n)) 
+
+drop1<- drop %>% 
+  filter(type=="Sessions")
+
+drop2<- drop %>% 
+  filter(type!="Sessions")
+```
+
+```{r}
+staff <- all_raw %>% 
+  filter(g_number==3) %>% 
+  select(Year=a,'BERD Leadership'=b,'BERD Faculty'=c,'BERD Staff'=d,'BDP (USR) Leadership'=e,'BDP (USR) Faculty'=f,'BDP (USR) Staff'=g) %>% 
+  filter(Year!="year")
+```
+
+```{r}
+area.color <- c("#A6A6A6","#FFC529","#FFC529","#FFC529","#FFC529","#FFC529","#A6A6A6")
+p1 <- ggplot(data=project, aes(x=Year, y=Project)) +
+    geom_bar(width=.75,stat="identity",fill=area.color)+
+    geom_text(aes(label = Project, y = Project ),
+    size=5,
+    position = position_dodge(1.5),
+    vjust = -0.3)+
+    theme_minimal() +
+    theme(axis.line=element_blank(),
+      axis.text.x=element_text(face="bold",size=12.5),
+      axis.text.y=element_blank(),
+      #axis.ticks=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      panel.grid.major=element_blank(),
+      panel.grid.minor=element_blank())+
+      #ggtitle("PROJECTS & INVESTIGATORS SERVED\nALL GRANT YEARS FY12 to FY18")+
+      theme(legend.position = c(0, 1),legend.justification = c(0, 1))+
+      geom_point(data=project, aes(x = Year, y = Investigators), colour = "#0E4D8F", size = 1)+
+      geom_line(data=project, aes(x = Year, y = Investigators,group=1), colour = "#0E4D8F", size = 0.85)+
+      geom_text(data=project, aes(label = Investigators, y = Investigators, colour = "#0E4D8F" ),
+    size=5,
+    color="#0E4D8F",
+    position = position_dodge(1.5),
+    vjust = 2.5)  +
+    annotate("text", x = 7, y=10, label = "8 mo",size=4.5)+
+    annotate("text", x = 1, y=10, label = "6 mo",size=4.5)
+p1
+ggsave("out_put/BERD1.pdf")
+
+```
+
+```{r}
+drop$type <- factor(drop$type, levels = c("Sessions", "Attendees"))
+
+p2 <- ggplot(drop, aes(Year, n)) +   
+  geom_bar(aes(fill = type), position = "dodge", stat="identity",width=.80)+
+   theme_minimal() +
+    theme(axis.line=element_blank(),
+      axis.text.x=element_text(face="bold",size=12.5),
+      axis.text.y=element_blank(),
+      #axis.ticks=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      panel.grid.major=element_blank(),
+      panel.grid.minor=element_blank())+
+      ggtitle("Biostatistics Drop-In Sessions (FY14 to FY 18)")+
+      theme(legend.position = c(1, 0),legend.justification = c(0,1),
+            legend.title =element_blank(),
+            legend.text = element_text( size=11))+
+      geom_text(data=drop1, aes(label = n, y = n ),
+    size=5,face="bold",
+    color="#363636",
+    position = position_dodge(1.5),
+    vjust = -.5, hjust=1.5)  +
+      geom_text(data=drop2, aes(label = n, y = n ),
+    size=5, face="bold",
+    color="#363636",
+    position = position_dodge(1.5),
+    vjust = -.5, hjust=-0.5)  +
+    annotate("text", x = 5, y=125, label = "Partial Year",size=4.5, face="bold")+
+    scale_fill_manual(values=c("#FFC529", "#5E97C9"))+
+   scale_y_continuous(limits = c(0, 145))
+p2
+ggsave("out_put/BERD2.pdf")
+```
+
+```{r}
+ohsu <- c( "#5E97C9", "#FFC939","#585E60", "#57B147", "#002776", "#C34D36", "#ED1941","#0E4D8F","#8B2252", "#BF3EFF", "#00EEEE")
+
+staff_use <- staff %>% 
+  gather(type,n,2:7) %>% 
+  ungroup() %>% 
+  mutate(n=as.numeric(n))
+
+  staff_use$type <- factor(staff_use$type, levels = c("BERD Leadership", "BERD Faculty","BERD Staff","BDP (USR) Leadership","BDP (USR) Faculty","BDP (USR) Staff")) 
+
+
+p3 <- ggplot(staff_use,aes(x = Year, y = n, fill = type, order = rev(type))) +
+  geom_bar(width=0.7,stat = "identity")+
+      theme_classic()+
+    theme(axis.line=element_blank(),
+      axis.text.x=element_text(face="bold",size=10),
+      axis.text.y=element_text(face="bold",size=8.5),
+      axis.title.x=element_blank(),
+      panel.grid.major=element_blank(),
+      panel.grid.minor=element_blank(),
+      panel.background = element_blank(),
+      legend.title =element_blank())+
+      ggtitle("Staffing Levels (FY14 to FY 18)")+
+      scale_y_continuous(breaks=seq(0,6,0.5))+
+      ylab("FTE")+
+      scale_fill_manual(values = ohsu)+
+      annotate("text", x = 5, y=1.7, label = "Partial\nYear",size=3.7,color="#FFFFFF")
+p3
+```
+
+
+

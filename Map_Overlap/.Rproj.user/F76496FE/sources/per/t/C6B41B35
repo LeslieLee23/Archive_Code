@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1537459102409.000,
+    "dirty" : true,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "921744861",
+    "id" : "C6B41B35",
+    "lastKnownWriteTime" : 1537471805,
+    "last_content_update" : 1538585557192,
+    "path" : "C:/Users/LLee/Desktop/R files/Eric/Eric.Rmd",
+    "project_path" : "Eric.Rmd",
+    "properties" : {
+        "cursorPosition" : "69,15",
+        "scrollLine" : "50",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

@@ -1,0 +1,18 @@
+"0","library(install.load)"
+"0","install_load(""tidyverse"",""janitor"",""lubridate"",""purrr"",""stringr"", ""readr"", ""dplyr"", ""tidyr"", ""readxl"", ""data.table"", ""tidyselect"", ""knitr"",""kableExtra"", ""parsedate"",""rio"",""stringi"",""stringr"",""ggplot2"",""grid"",""gtable"",""maptools"") # list packages needed"
+"2","trying URL 'https://cloud.r-project.org/bin/windows/contrib/3.5/maptools_0.9-4.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 2143256 bytes (2.0 MB)
+"
+"2","downloaded 2.0 MB
+
+"
+"1","package ‘maptools’ successfully unpacked and MD5 sums checked
+"
+"1","
+"
+"1","The downloaded binary packages are in
+	C:\Users\LLee\AppData\Local\Temp\RtmpAzXECu\downloaded_packages"
+"1","
+"

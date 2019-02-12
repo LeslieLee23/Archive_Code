@@ -1,0 +1,116 @@
+---
+title: "all_contact"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+options(knitr.table.format = "html") 
+```
+
+```{r load_pkgs, message=FALSE, warning=FALSE, results = 'hide', include=FALSE}
+
+#list packages needed
+library(install.load)
+install_load("tidyverse","janitor","lubridate","purrr","stringr", "readr", "dplyr", "tidyr", "readxl", "data.table", "tidyselect", "knitr","kableExtra", "parsedate","rio","stringi","stringr","ggplot2", "cowplot") 
+
+```
+
+```{r data_locations}
+
+all_raw <- 'raw_data/all_contacts.csv'
+
+```
+
+```{r read_in}
+all_contacts <- read_csv(all_raw) %>% clean_names()
+
+```
+
+
+```{r RDW_basic_filter, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+
+name_clean <- all_contacts %>% 
+mutate(name =paste(first_name,last_name)) %>% 
+mutate(name=str_replace(name, pattern = "MD", replacement = "")) %>%  
+mutate(name=str_replace(name, pattern = " M.D.", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " ARNP", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " AuD", replacement = "")) %>%  
+mutate(name=str_replace(name, pattern = " CNP", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " CNM", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " CRNA", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " DC", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " DDS", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " DMD", replacement = "")) %>%  
+mutate(name=str_replace(name, pattern = " DO", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " DC", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " DPM", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " Dr", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " MA", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " NP", replacement = "")) %>%  
+mutate(name=str_replace(name, pattern = " PA", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " PAC", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " PHD", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " JR", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " OD", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " BC", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " PTA", replacement = "")) %>% 
+mutate(name=str_replace(name, pattern = " DPM", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " ANP", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " ND", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " FNP", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " DNP", replacement = "")) %>%
+mutate(name=str_replace(name, pattern = " ND", replacement = "")) 
+  
+basic <-
+  filter(
+  name_clean,
+  !is.na(zip) | !is.na(city)) %>% 
+
+mutate(address=paste(business_name,street1, street2, city, state, zip, sep=", ")) %>% 
+  
+mutate(address=str_replace(address, pattern = "NA, ", replacement = "")) %>% 
+mutate(address=str_replace(address, pattern = " NA,", replacement = "")) %>%  
+mutate(address=str_replace(address, pattern = " NA", replacement = "")) %>% 
+mutate(address=str_replace(address, pattern = "NA ", replacement = "")) %>% 
+  
+mutate(phone=paste0(phone_area_code,phone_number)) %>% 
+mutate(phone=str_replace(phone, pattern = "NANA", replacement = "")) 
+
+  
+use <- basic %>% 
+select(npi,name_suffix,name,address,phone) 
+  
+use<- unique(use) %>% 
+mutate(address=str_replace(address, pattern = "NA, ", replacement = "")) %>% 
+mutate(address=str_replace(address, pattern = " NA,", replacement = "")) %>%  
+mutate(address=str_replace(address, pattern = " NA", replacement = "")) %>% 
+mutate(address=str_replace(address, pattern = "NA ", replacement = "")) %>%  
+mutate(address=str_replace(address, pattern = ",,", replacement = ",")) %>%  
+  
+mutate(rank1 = ifelse(!is.na(npi),1,0)) %>% 
+mutate(rank2 = ifelse(!is.na(name_suffix),2,0)) %>%   
+mutate(rank3 = ifelse(!is.na(phone),2,0)) %>% 
+mutate(rank = rank1 + rank2 +rank3)
+ 
+  
+  use2 <- subset(use, !duplicated(use[,4],)) %>% 
+  mutate(length=str_length(address)) %>% 
+  group_by(length) 
+  
+  use2[is.na(use2)] <- "" %>% 
+    
+use3 <- use2 %>% 
+select(npi,name_suffix,name,address,phone)
+
+  write.csv(use3,'Contacts_rough_cleaned.csv')
+```

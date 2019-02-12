@@ -1,0 +1,24 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1522695497974.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3090079655",
+    "id" : "D12F5BA3",
+    "lastKnownWriteTime" : 1522695556,
+    "last_content_update" : 1522695556023,
+    "path" : "C:/Users/LLee/Desktop/R files/CTO/Study Count Dashboard.Rmd",
+    "project_path" : "Study Count Dashboard.Rmd",
+    "properties" : {
+        "chunk_output_type" : "inline",
+        "cursorPosition" : "58,2",
+        "scrollLine" : "48",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

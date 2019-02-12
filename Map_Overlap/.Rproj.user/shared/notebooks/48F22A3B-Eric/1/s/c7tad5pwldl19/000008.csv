@@ -1,0 +1,8 @@
+"0","e_all <- zip %>% "
+"0","  left_join(ma_pa,by = ""zip"") %>% "
+"0","  filter(state==""MD""|state==""PA"")"
+"0","e_all2 <- zip %>% "
+"0","  full_join(ma_pa,by = ""zip"") %>% "
+"0","  filter(state==""MD""|state==""PA"") %>%  "
+"0","  mutate(yes=ifelse(is.na(total),""no"",""yes"")) %>% "
+"0","  mutate(total=ifelse(yes==""no"",10,total))"

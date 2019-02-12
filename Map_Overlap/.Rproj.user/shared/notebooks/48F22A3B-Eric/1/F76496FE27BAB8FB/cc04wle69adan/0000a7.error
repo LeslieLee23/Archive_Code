@@ -1,0 +1,1 @@
+{"frames":[{"character_number":0,"end_character_number":0,"end_line_number":0,"file":"","func":"ggmap(get_google_map(location = eric_p), source = \"osm\")","line_number":0}],"message":"Error in get_google_map(location = eric_p) : \n  could not find function \"get_google_map\"\n"}

@@ -1,0 +1,32 @@
+"0","patients_raw <- read_csv(patients_csv) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  `Patient ID` = col_integer(),
+  `Patient Zip` = col_character()
+)
+"
+"0","carrie <- read_csv(carrie_csv) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  practice = col_character(),
+  a = col_double(),
+  b = col_double()
+)
+"
+"0","comp <- read_csv(comp_csv) %>% clean_names()"
+"2","Parsed with column specification:
+cols(
+  practice = col_character(),
+  a = col_double(),
+  b = col_double()
+)
+"
+"0","data(zipcode)"
+"0","us_map <- county_map_data"
+"0","zipcode <- zipcode %>% "
+"0","  mutate(zip_code=as.numeric(zip))"
+"0","tx <- zipcode %>% "
+"0","  filter(state == ""TX"") "
+"0","states <- map_data(""state"")"
+"0","tx_map <- states %>%"
+"0","  filter(region %in% c(""texas""))"
